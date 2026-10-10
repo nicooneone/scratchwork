@@ -1,6 +1,6 @@
 @AGENTS.md
 
-# Scratchwork — team rules (HackRU F26, 24h)
+# RedLine — team rules (HackRU F26, 24h)
 
 The full build plan is `docs/PLAN.md`. Read your step there before writing code.
 

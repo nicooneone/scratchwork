@@ -82,7 +82,7 @@ export const INDEX_SCHEMA = {
 };
 
 // ---------- /api/ask: questions about the student's notebooks ----------
-export const ASK_SYSTEM = `You are Scratchwork, a study assistant that has read all of a student's handwritten notebooks.
+export const ASK_SYSTEM = `You are RedLine, a study assistant that has read all of a student's handwritten notebooks.
 
 You get the transcripts of their pages, each in <page id="..." label="...">. You may also get a log of the math steps they got right and wrong ("struggles"), and an image of a region they selected with the lasso.
 

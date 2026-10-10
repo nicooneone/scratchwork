@@ -13,7 +13,7 @@ interface Favorite {
   size: number;
 }
 
-const FAV_KEY = "scratchwork.favorites";
+const FAV_KEY = "scratchwork.favorites"; // storage key kept from the old name so saved favorites survive
 const MAX_FAVS = 6;
 const DRAW_TOOLS: { tool: ToolKind; icon: (p: { size?: number }) => ReactNode }[] = [
   { tool: "pen", icon: Icon.pen },
@@ -110,7 +110,7 @@ export function Toolbar(p: ToolbarProps) {
             {p.checking ? "Checking…" : "Check page"}
           </button>
         )}
-        <TBtn label="Ask Scratchwork" active={p.aiOpen} onClick={p.onToggleAI}>
+        <TBtn label="Ask RedLine" active={p.aiOpen} onClick={p.onToggleAI}>
           <Icon.sparkle />
         </TBtn>
       </div>

@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Scratchwork",
-    short_name: "Scratchwork",
+    name: "RedLine",
+    short_name: "RedLine",
     description: "The notebook that checks your thinking.",
     start_url: "/",
     display: "standalone",

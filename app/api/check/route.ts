@@ -40,6 +40,7 @@ export async function POST(request: Request) {
       parts: [png(body.png), { text: `Transcribe these lines: ${labels}.` }],
       schema: READER_SCHEMA,
       thinking: "minimal",
+      prefer: "fast",
     });
     read = (data.lines ?? [])
       .filter((l) => !lineBoxes.length || lineBoxes.some((b) => b.index === l.index))

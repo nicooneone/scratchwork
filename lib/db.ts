@@ -5,13 +5,13 @@ import Dexie, { type EntityTable } from "dexie";
 import type { Notebook, Page, StruggleEvent, TemplateId } from "./types";
 import { uid } from "./ids";
 
-class ScratchworkDB extends Dexie {
+class RedLineDB extends Dexie {
   notebooks!: EntityTable<Notebook, "id">;
   pages!: EntityTable<Page, "id">;
   struggles!: EntityTable<StruggleEvent, "key">;
 
   constructor() {
-    super("scratchwork");
+    super("scratchwork"); // database name kept from the old app name: renaming it would lose saved notebooks
     this.version(1).stores({
       notebooks: "id, updatedAt",
       pages: "id, notebookId, [notebookId+index]",
@@ -20,11 +20,11 @@ class ScratchworkDB extends Dexie {
   }
 }
 
-let instance: ScratchworkDB | null = null;
+let instance: RedLineDB | null = null;
 
 /** Lazily open the database (only in the browser — never call during server rendering). */
-export function db(): ScratchworkDB {
-  if (!instance) instance = new ScratchworkDB();
+export function db(): RedLineDB {
+  if (!instance) instance = new RedLineDB();
   return instance;
 }
 

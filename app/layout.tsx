@@ -6,9 +6,9 @@ const ui = IBM_Plex_Sans({ variable: "--font-ui", subsets: ["latin"], weight: ["
 const hand = Caveat({ variable: "--font-hand", subsets: ["latin"], weight: ["600", "700"] });
 
 export const metadata: Metadata = {
-  title: "Scratchwork",
+  title: "RedLine",
   description: "The iPad notebook that checks your thinking, not just your answer.",
-  appleWebApp: { capable: true, title: "Scratchwork", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "RedLine", statusBarStyle: "default" },
   icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
 };
 

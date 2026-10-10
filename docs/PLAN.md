@@ -1,4 +1,4 @@
-# Blueprint: HackRU Fall 2026 — "Scratchwork" (v2: the notebook)
+# Blueprint: HackRU Fall 2026 — "RedLine" (v2: the notebook; formerly "Scratchwork")
 
 > **Objective:** Win HackRU F26 (Rutgers, Busch Student Center, Oct 10–11 2026, 24h) with a **GoodNotes-style handwriting notebook for iPad + Apple Pencil whose AI checks your work as you write**, knows everything in your notebooks, and quizzes you on where you struggled.
 > **Mode:** Direct mode (git present, `gh` not installed) — one GitHub repo, `main` only, strict file ownership.
@@ -20,7 +20,7 @@ Sources: hackru.org (F26 page), HackRU F25 Devpost (rules/prizes/judges — **re
 
 ---
 
-## 1. The product — **Scratchwork**
+## 1. The product — **RedLine**
 
 > *"The notebook that checks your thinking, not just your answer."*
 
@@ -42,7 +42,7 @@ Apple Pencil 1st gen limits (don't plan around them): **no hover, no double-tap,
 
 **AI (the differentiator):**
 1. **Live Check (tutor mode):** pause writing for ~2.5 s → the AI reads your recent lines, a math engine verifies each step, and a **red-pen circle + margin note** appears on the first wrong line. Correct lines get a faint green tick. Tap the note → Socratic hint ladder, spoken by **ElevenLabs**. Handles algebra *and* calculus (derivatives/integrals).
-2. **Ask Scratchwork:** chat panel that has read *all* your notebooks. Answers cite pages (**[Calc 1 · p4]** → tap to jump there). Lasso a region + "Ask about this".
+2. **Ask RedLine:** chat panel that has read *all* your notebooks. Answers cite pages (**[Calc 1 · p4]** → tap to jump there). Lasso a region + "Ask about this".
 3. **Notebook Brain:** every page is transcribed in the background into text + summary + topics. A **concept map** shows how topics connect across pages and notebooks.
 4. **Struggle map + Quiz Me:** every Live Check result is logged per topic; mastery is estimated with **Bayesian Knowledge Tracing**. "Quiz me" generates questions weighted toward weak topics and creates a **quiz page** you answer by hand, which Live Check then grades.
 
@@ -56,7 +56,7 @@ Apple Pencil 1st gen limits (don't plan around them): **no hover, no double-tap,
 |---|---|
 | MLH Gemini | Vision reading of handwriting, notebook-wide Q&A with citations, topic extraction, quiz generation |
 | MLH ElevenLabs | Spoken Socratic hints from the margin notes |
-| MLH .Tech | Hosted at `scratchwork.tech` (or similar) via MLH's free code; it's also the install URL |
+| MLH .Tech | Hosted at `redline.tech` (or similar) via MLH's free code; it's also the install URL |
 | Best UI/UX | Paper-and-ink feel, red-pen annotations, GoodNotes-grade toolbar on iPad |
 | IDEA Entrepreneurial | Freemium notebook; AI tutor tier; schools/tutoring centers license |
 
@@ -381,7 +381,7 @@ curl -s -X POST localhost:3000/api/speak -H 'content-type: application/json' -d 
 2. **Live (A, 60 s):** in the Calc notebook, write `∫ 2x·cos(x²) dx = 2 sin(x²) + C` and pause → red circle → tap → voice: "What do you get if you differentiate your answer?" → stroke-erase the 2 → the circle disappears.
 3. **Tech (B, 25 s):** "Gemini only reads. We found the lines from the pen strokes ourselves, and our engine *proves* each step: algebra by testing equivalence at random points, integrals by differentiating your answer numerically. See the badge: verified by math."
 4. **Brain (D, 20 s):** Ask: "What did I struggle with this week?" → answer cites Calc p3 → tap → jumps there. "Quiz me" → quiz page built from my weak spots. Concept map flash.
-5. **Close (all, 5 s):** "Scratchwork. The notebook that checks your thinking."
+5. **Close (all, 5 s):** "RedLine. The notebook that checks your thinking."
 
 Prepared answers: *Why web, not native?* (works on any iPad today, one codebase; native PencilKit is next) · *Hallucinations?* (math-verified badge, AI-judged lines labeled, reading is temperature 0 and told never to correct) · *Privacy?* (notes live on the device; only checked snippets are sent for analysis) · *Why no vector DB?* (long context reads the whole notebook; more accurate at student scale).
 

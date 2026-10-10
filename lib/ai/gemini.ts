@@ -30,6 +30,18 @@ export interface JsonCall {
   thinking?: "minimal" | "low" | "medium";
   temperature?: number;
   timeoutMs?: number;
+  /** "fast" tries the Lite model first (reading handwriting, indexing: frequent, simple).
+   *  "smart" tries the full model first (hints, Q&A, quizzes: rarer, need more reasoning). */
+  prefer?: "fast" | "smart";
+}
+
+// After a rate-limit (429) or overload (503), skip that model for a while instead of
+// paying for a failed round-trip on every request.
+const cooldownUntil = new Map<string, number>();
+function noteFailure(model: string, err: unknown) {
+  const msg = String((err as Error)?.message ?? err);
+  if (msg.includes('"code":429') || msg.includes("RESOURCE_EXHAUSTED")) cooldownUntil.set(model, Date.now() + 60_000);
+  else if (msg.includes('"code":503') || msg.includes("UNAVAILABLE")) cooldownUntil.set(model, Date.now() + 15_000);
 }
 
 /**
@@ -38,7 +50,10 @@ export interface JsonCall {
  */
 export async function generateJson<T>(call: JsonCall): Promise<{ data: T; model: string; ms: number }> {
   let lastError: unknown;
-  for (const model of [MODEL, FALLBACK_MODEL]) {
+  const order = call.prefer === "fast" ? [FALLBACK_MODEL, MODEL] : [MODEL, FALLBACK_MODEL];
+  // Models cooling down go last (still tried if nothing else works).
+  const models = [...order].sort((a, b) => Number((cooldownUntil.get(a) ?? 0) > Date.now()) - Number((cooldownUntil.get(b) ?? 0) > Date.now()));
+  for (const model of models) {
     const start = Date.now();
     try {
       const res = await ai().models.generateContent({
@@ -58,6 +73,7 @@ export async function generateJson<T>(call: JsonCall): Promise<{ data: T; model:
       return { data: JSON.parse(text) as T, model, ms: Date.now() - start };
     } catch (err) {
       lastError = err;
+      noteFailure(model, err);
       console.warn(`[gemini] ${model} failed after ${Date.now() - start} ms:`, String((err as Error)?.message ?? err).slice(0, 200));
     }
   }

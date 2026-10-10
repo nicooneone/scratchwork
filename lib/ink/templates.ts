@@ -16,10 +16,12 @@ export const TEMPLATES: { id: TemplateId; label: string }[] = [
 
 export function templateStyle(template: TemplateId): CSSProperties {
   const u = "var(--u, 1px)";
+  // Line thickness never drops below 1 CSS px, so small thumbnails still show the paper.
+  const hair = `max(1px, ${u})`;
   switch (template) {
     case "lined":
       return {
-        backgroundImage: `linear-gradient(to bottom, transparent calc(${u} * 47), ${LINE} calc(${u} * 47), ${LINE} calc(${u} * 48))`,
+        backgroundImage: `linear-gradient(to bottom, transparent calc(${u} * 48 - ${hair}), ${LINE} calc(${u} * 48 - ${hair}), ${LINE} calc(${u} * 48))`,
         backgroundSize: `100% calc(${u} * 48)`,
         backgroundPosition: `0 calc(${u} * 72)`,
       };
@@ -30,15 +32,15 @@ export function templateStyle(template: TemplateId): CSSProperties {
       };
     case "dot":
       return {
-        backgroundImage: `radial-gradient(circle, ${LINE} calc(${u} * 2.2), transparent calc(${u} * 2.6))`,
+        backgroundImage: `radial-gradient(circle, ${LINE} max(0.8px, calc(${u} * 2.2)), transparent max(1.2px, calc(${u} * 2.6)))`,
         backgroundSize: `calc(${u} * 40) calc(${u} * 40)`,
       };
     case "cornell":
       return {
         backgroundImage: [
-          `linear-gradient(90deg, transparent calc(${u} * 279), #e3a5a0 calc(${u} * 279), #e3a5a0 calc(${u} * 281), transparent calc(${u} * 281))`,
-          `linear-gradient(to bottom, transparent calc(${u} * 1150), ${LINE} calc(${u} * 1150), ${LINE} calc(${u} * 1152), transparent calc(${u} * 1152))`,
-          `linear-gradient(to bottom, transparent calc(${u} * 47), ${LINE} calc(${u} * 47), ${LINE} calc(${u} * 48))`,
+          `linear-gradient(90deg, transparent calc(${u} * 279), #e3a5a0 calc(${u} * 279), #e3a5a0 calc(${u} * 279 + max(1px, ${u} * 2)), transparent calc(${u} * 279 + max(1px, ${u} * 2)))`,
+          `linear-gradient(to bottom, transparent calc(${u} * 1150), ${LINE} calc(${u} * 1150), ${LINE} calc(${u} * 1150 + max(1px, ${u} * 2)), transparent calc(${u} * 1150 + max(1px, ${u} * 2)))`,
+          `linear-gradient(to bottom, transparent calc(${u} * 48 - ${hair}), ${LINE} calc(${u} * 48 - ${hair}), ${LINE} calc(${u} * 48))`,
         ].join(","),
         backgroundSize: `100% 100%, 100% 100%, 100% calc(${u} * 48)`,
         backgroundRepeat: "no-repeat, no-repeat, repeat",

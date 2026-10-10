@@ -38,7 +38,7 @@ export default function Library() {
       <header className="flex items-end justify-between gap-4 py-6">
         <div>
           <h1 className="font-hand text-5xl leading-none sm:text-6xl">
-            Scratch<span className="text-mark">work</span>
+            Red<span className="text-mark">Line</span>
           </h1>
           <p className="mt-2 text-ink-soft">The notebook that checks your thinking, not just your answer.</p>
         </div>
@@ -76,7 +76,7 @@ function EmptyState({ onCreate }: { onCreate(): void }) {
     <div className="mx-auto mt-10 flex max-w-sm flex-col items-center text-center">
       <div className="mb-5 aspect-[1000/1414] w-40 rounded-sm bg-paper shadow-md" style={templateStyle("grid")} />
       <p className="font-hand text-2xl">No notebooks yet</p>
-      <p className="mt-1 text-ink-soft">Make one, write some math with the Pencil, and pause. Scratchwork checks each line.</p>
+      <p className="mt-1 text-ink-soft">Make one, write some math with the Pencil, and pause. RedLine checks each line.</p>
       <button onClick={onCreate} className="mt-5 h-11 rounded-full bg-ink px-6 font-medium text-paper">
         Create a notebook
       </button>

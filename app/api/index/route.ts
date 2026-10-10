@@ -18,6 +18,7 @@ export async function POST(request: Request) {
       parts: [png(body.png), { text: "Transcribe and summarize this notebook page." }],
       schema: INDEX_SCHEMA,
       thinking: "minimal",
+      prefer: "fast",
     });
     const topics = [...new Set((data.topics ?? []).map(kebab).filter((t): t is string => !!t))].slice(0, 5);
     const result: PageBrain = { transcript: data.transcript ?? "", summary: data.summary ?? "", topics, indexedAt: Date.now() };
