@@ -17,10 +17,11 @@ export async function indexStalePages(pages: Page[], opts: { mock?: boolean; onP
     const region = strokesBounds(p.strokes);
     if (!region) continue;
     try {
+      const exportedAt = Date.now();
       const png = await renderToPng(p.strokes, region);
       const res = await fetch(`/api/index${opts.mock ? "?mock=1" : ""}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ png }) });
       if (!res.ok) continue;
-      const brain = { ...((await res.json()) as PageBrain), indexedAt: Date.now() };
+      const brain = { ...((await res.json()) as PageBrain), indexedAt: exportedAt };
       await db().pages.update(p.id, { brain });
       updated.push({ ...p, brain });
     } catch {

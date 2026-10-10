@@ -12,8 +12,9 @@ import { renderToPng } from "@/lib/ink/export";
 import { segmentLines } from "@/lib/ink/segment";
 import { INK_COLORS, TOOL_PRESETS } from "@/lib/ink/tools";
 import { unlockAudio } from "@/lib/voice";
-import type { Box, CheckRequest, CheckResult, CheckedLine, LineBox, Notebook, Page, QuizQuestion, Stroke, TemplateId, ToolState, Verdict } from "@/lib/types";
+import type { Box, CheckRequest, CheckResult, CheckedLine, LineBox, Notebook, Page, PageBrain, QuizQuestion, Stroke, TemplateId, ToolState, Verdict } from "@/lib/types";
 import { AIPanel } from "@/components/ai/AIPanel";
+import { useBackgroundIndex } from "@/components/ai/useBackgroundIndex";
 import { HintCard } from "@/components/ai/HintCard";
 import { QuizOverlay, gradeQuiz, layoutQuiz } from "@/components/ai/QuizOverlay";
 import { TutorMarks } from "@/components/ai/TutorMarks";
@@ -84,6 +85,14 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => savePage(next), SAVE_MS);
   }, []);
+
+  /** Attach a fresh transcript without touching strokes the student wrote since it was exported. */
+  const mergeBrain = useCallback((pageId: string, brain: PageBrain) => {
+    setPages((ps) => ps.map((p) => (p.id === pageId ? { ...p, brain } : p)));
+  }, []);
+
+  // Notebook Brain: index changed pages after 10 s idle, in the background.
+  useBackgroundIndex(pages, { mock, onIndexed: mergeBrain });
 
   // Flush a pending save when leaving the page.
   useEffect(() => () => clearTimeout(saveTimer.current), []);
@@ -286,7 +295,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
             onClearSnippet={() => setSnippet(null)}
             onNavigate={navigate}
             onMakeQuizPage={makeQuizPage}
-            onIndexed={(updated) => setPages((ps) => ps.map((p) => updated.find((u) => u.id === p.id) ?? p))}
+            onIndexed={(updated) => updated.forEach((u) => u.brain && mergeBrain(u.id, u.brain))}
           />
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 // Owner: C. Concept map: topics from every indexed page. Node size = pages on that topic,
-// edges = topics that appear together on a page. Tap a node to list its pages.
+// edges = topics on the same page (weight 1) or on consecutive pages of a notebook (weight 0.5). Tap a node to list its pages.
 import { useMemo, useState } from "react";
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, type SimulationLinkDatum, type SimulationNodeDatum } from "d3-force";
 import type { Notebook, Page } from "@/lib/types";
@@ -29,6 +29,21 @@ export function ConceptMap({ pages, notebooks, onNavigate }: { pages: Page[]; no
           const k = [topics[i], topics[j]].sort().join("|");
           pairs.set(k, (pairs.get(k) ?? 0) + 1);
         }
+    }
+    // Topics on consecutive pages of the same notebook are related too (a lesson continues), at half weight.
+    const byNotebook = new Map<string, Page[]>();
+    for (const p of pages) if (p.brain?.topics?.length) (byNotebook.get(p.notebookId) ?? byNotebook.set(p.notebookId, []).get(p.notebookId)!).push(p);
+    for (const list of byNotebook.values()) {
+      list.sort((a, b) => a.index - b.index);
+      for (let i = 0; i + 1 < list.length; i++) {
+        if (list[i + 1].index !== list[i].index + 1) continue;
+        for (const a of new Set(list[i].brain!.topics))
+          for (const b of new Set(list[i + 1].brain!.topics)) {
+            if (a === b) continue;
+            const k = [a, b].sort().join("|");
+            pairs.set(k, (pairs.get(k) ?? 0) + 0.5);
+          }
+      }
     }
     const nodes: Node[] = [...byTopic].map(([id, ps]) => ({ id, pages: [...ps], r: 9 + 5 * Math.sqrt(ps.size) }));
     const links: Link[] = [...pairs].map(([k, w]) => {
@@ -59,7 +74,7 @@ export function ConceptMap({ pages, notebooks, onNavigate }: { pages: Page[]; no
         {links.map((l, i) => {
           const s = l.source as Node, t = l.target as Node;
           const hot = selected && (s.id === selected || t.id === selected);
-          return <line key={i} x1={s.x} y1={s.y} x2={t.x} y2={t.y} stroke={hot ? "var(--ink)" : "#c4cad6"} strokeWidth={1 + l.w} />;
+          return <line key={i} x1={s.x} y1={s.y} x2={t.x} y2={t.y} stroke={hot ? "var(--ink)" : "#c4cad6"} strokeWidth={Math.min(5, 0.8 + l.w)} />;
         })}
         {nodes.map((n) => (
           <g key={n.id} onClick={() => setSelected(n.id === selected ? null : n.id)} style={{ cursor: "pointer" }}>
