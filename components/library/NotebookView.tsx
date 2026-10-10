@@ -22,7 +22,8 @@ import { TutorMarks } from "@/components/ai/TutorMarks";
 import { Toolbar } from "@/components/toolbar/Toolbar";
 import { PageRail } from "./PageRail";
 
-const IDLE_MS = 2500;
+const IDLE_MS = 1200; // pause after the last stroke before checking the line being written
+
 const SAVE_MS = 500;
 
 export default function NotebookView({ id, initialPageId, mock }: { id: string; initialPageId?: string; mock?: boolean }) {
@@ -50,6 +51,8 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
   const version = useRef(0); // bumps on every stroke change; stale check results are dropped
   const checkedVersion = useRef(-1);
   const inFlight = useRef(false);
+  const lastStrokeAt = useRef(0); // performance.now() of the last ink change
+  const lastInkLine = useRef<{ id: string; bottom: number } | null>(null); // line of the previous new stroke
   const recheck = useRef(false); // a pause happened while a check was running: check again after it
   const [checkedBoxes, setCheckedBoxes] = useState<LineBox[]>([]); // the lines (and their strokes) the result is about
   const hadError = useRef(false);
@@ -81,6 +84,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
     setSnippet(null);
     checkedVersion.current = -1;
     hadError.current = false;
+    lastInkLine.current = null;
   }, []);
 
   const updatePage = useCallback((next: Page) => {
@@ -111,10 +115,18 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
       }
       if (!force && checkedVersion.current === version.current) return;
       // Only the problem being worked on (the block with the newest stroke), numbered L1..Ln.
-      const lines: LineBox[] = currentBlock(segmentLines(p.strokes), p.strokes);
+      let lines: LineBox[] = currentBlock(segmentLines(p.strokes), p.strokes);
       if (lines.length === 0) {
         setResult(null);
         return;
+      }
+      // Still writing? Then the newest line is half-done: check only the finished lines above it.
+      const writing = !force && performance.now() - lastStrokeAt.current < IDLE_MS - 50;
+      if (writing) {
+        const newest = newestInkId(p.strokes);
+        if (!newest || !lines[lines.length - 1].strokeIds.includes(newest)) return; // editing mid-problem: wait for the pause
+        lines = lines.slice(0, -1);
+        if (lines.length === 0) return;
       }
       const v = version.current;
       inFlight.current = true;
@@ -127,9 +139,13 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
         const res = await fetch(`/api/check${mock ? "?mock=1" : ""}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "The tutor couldn't check this page.");
-        if (version.current !== v || pageRef.current?.id !== p.id) return; // ink changed meanwhile: next idle check will redo it
+        // Keep the result even if the student kept writing; drop it only if the lines we checked were erased.
+        const now = pageRef.current;
+        if (!now || now.id !== p.id) return;
+        const live = new Set(now.strokes.map((s) => s.id));
+        if (!lines.every((l) => l.strokeIds.every((id) => live.has(id)))) return;
         const r = json as CheckResult;
-        checkedVersion.current = v;
+        if (!writing && version.current === v) checkedVersion.current = v; // a partial check leaves the last line for later
 
         if (hadError.current && r.firstErrorIndex == null) setToast("Nice fix!");
         hadError.current = r.firstErrorIndex != null;
@@ -169,9 +185,20 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
       const p = pageRef.current;
       if (!p) return;
       version.current++;
+      lastStrokeAt.current = performance.now();
       updatePage({ ...p, strokes, updatedAt: Date.now() });
       clearTimeout(idleTimer.current);
-      if (tool.tutorMode) idleTimer.current = setTimeout(() => runCheck(), IDLE_MS);
+      if (!tool.tutorMode) return;
+      idleTimer.current = setTimeout(() => runCheck(), IDLE_MS);
+
+      // The pen just moved down to a new line: the line above is finished, so check it now.
+      const added = strokes.length > p.strokes.length ? strokes[strokes.length - 1] : null;
+      if (!added || added.tool === "highlighter" || added.tool === "lasso" || added.tool.startsWith("eraser")) return;
+      const line = segmentLines(strokes).find((l) => l.strokeIds.includes(added.id));
+      if (!line) return;
+      const prev = lastInkLine.current;
+      lastInkLine.current = { id: added.id, bottom: line.box.y + line.box.h };
+      if (prev && !line.strokeIds.includes(prev.id) && line.box.y > prev.bottom - line.box.h * 0.3) runCheck();
     },
     [updatePage, runCheck, tool.tutorMode],
   );
@@ -340,4 +367,14 @@ function hash(s: string): string {
     h = Math.imul(h, 0x01000193);
   }
   return (h >>> 0).toString(36);
+}
+
+/** Id of the most recent ink stroke (not highlighter, eraser or lasso). */
+function newestInkId(strokes: Stroke[]): string | null {
+  let newest: Stroke | null = null;
+  for (const s of strokes) {
+    if (s.tool === "highlighter" || s.tool === "lasso" || s.tool.startsWith("eraser")) continue;
+    if (!newest || s.createdAt >= newest.createdAt) newest = s;
+  }
+  return newest?.id ?? null;
 }
