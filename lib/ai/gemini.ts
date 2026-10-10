@@ -1,9 +1,9 @@
 // Owner: D. Server-only Gemini client. Append-only after Step 0.
 import { GoogleGenAI } from "@google/genai";
 
-/** Model ids are configurable so we can switch if one is rate-limited. Check AI Studio for the latest Flash. */
-export const MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
-export const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL ?? "gemini-2.5-flash-lite";
+/** Model ids are configurable. Tested 10 Oct 2026: gemini-2.5-* is closed to new keys (404); gemini-3.8-flash and gemini-flash-latest hang > 40 s on the free tier. */
+export const MODEL = process.env.GEMINI_MODEL ?? "gemini-3.5-flash";
+export const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL ?? "gemini-3.5-flash-lite";
 
 let client: GoogleGenAI | null = null;
 
