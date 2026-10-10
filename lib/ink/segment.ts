@@ -85,8 +85,14 @@ export function segmentLines(strokes: Stroke[]): LineBox[] {
         .map((n) => ({ n, gap: gapBetween(c, n) }))
         .sort((a, b) => a.gap - b.gap)[0];
       if (!best) continue;
-      const short = height(c) < 0.6 * H && best.gap < H;
-      const inside = c.left >= best.n.left - PAD && c.right <= best.n.right + PAD && best.gap < 0.35 * H;
+      // A fragment that sits entirely under its neighbor with a real gap is the first glyph of the
+      // NEXT line (e.g. a lone "x" or "=" the student just started), not an exponent or a limit.
+      // Merging it would corrupt the line above until the new line grows. Denominators and lower
+      // limits still merge: they sit tight under their line (gap well under 0.2 H) and inside its width.
+      const below = c.top >= best.n.bottom;
+      const newLine = below && best.gap >= 0.2 * H;
+      const short = !below && height(c) < 0.6 * H && best.gap < H;
+      const inside = !newLine && c.left >= best.n.left - PAD && c.right <= best.n.right + PAD && best.gap < 0.35 * H;
       if ((short || inside) && height(c) <= height(best.n)) {
         absorb(best.n, c);
         clusters.splice(i, 1);

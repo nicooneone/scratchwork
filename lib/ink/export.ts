@@ -6,6 +6,7 @@ import { drawStroke } from "./render";
 
 const MARGIN = 60; // page units added on the left for line labels
 const MAX_EDGE = 1600; // px, keeps requests well under Vercel's 4.5 MB body limit
+const MAX_SCALE = 4; // small crops (one short line) are upscaled so the glyphs stay big enough to read
 const PAD = 12;
 
 export async function renderToPng(
@@ -20,7 +21,7 @@ export async function renderToPng(
     w: region.w + PAD * 2 + (labels.length ? MARGIN : 0),
     h: region.h + PAD * 2,
   };
-  const scale = Math.min(2, MAX_EDGE / Math.max(r.w, r.h));
+  const scale = Math.min(MAX_SCALE, MAX_EDGE / Math.max(r.w, r.h));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(r.w * scale));
   canvas.height = Math.max(1, Math.round(r.h * scale));

@@ -13,7 +13,7 @@ import { currentBlock } from "@/lib/ink/blocks";
 import { segmentLines } from "@/lib/ink/segment";
 import { INK_COLORS, TOOL_PRESETS } from "@/lib/ink/tools";
 import { unlockAudio } from "@/lib/voice";
-import { PAGE_H, type Box, type CheckRequest, type CheckResult, type CheckedLine, type LineBox, type Notebook, type Page, type PageBrain, type QuizQuestion, type ReadLine, type Stroke, type TemplateId, type ToolState, type Verdict } from "@/lib/types";
+import { PAGE_H, type Box, type CheckRequest, type CheckResult, type CheckedLine, type LineBox, type Notebook, type Page, type PageBrain, type QuizQuestion, type ReadLine, type Stroke, type StruggleEvent, type TemplateId, type ToolState, type Verdict } from "@/lib/types";
 import { AIPanel } from "@/components/ai/AIPanel";
 import { useBackgroundIndex } from "@/components/ai/useBackgroundIndex";
 import { HintCard } from "@/components/ai/HintCard";
@@ -22,7 +22,7 @@ import { TutorMarks } from "@/components/ai/TutorMarks";
 import { Toolbar } from "@/components/toolbar/Toolbar";
 import { PageRail } from "./PageRail";
 
-const IDLE_MS = 1200; // pause after the last stroke before checking the line being written
+const IDLE_MS = 1800; // pause after the last stroke before checking (the pen-down-below trigger is the fast path)
 
 const SAVE_MS = 500;
 
@@ -58,6 +58,9 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
   const recheck = useRef(false); // a pause happened while a check was running: check again after it
   const [checkedBoxes, setCheckedBoxes] = useState<LineBox[]>([]); // the lines (and their strokes) the result is about
   const hadError = useRef(false);
+  // The last line of a block may still be half-written when an idle check runs, so its struggle
+  // event is held here and only logged once the student moves below it (or taps Check / I fixed it).
+  const pendingLastLog = useRef<StruggleEvent | null>(null);
 
   const page = pages.find((p) => p.id === currentId) ?? null;
   const pageRef = useRef(page);
@@ -87,7 +90,14 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
     checkedVersion.current = -1;
     hadError.current = false;
     lastInkLine.current = null;
+    flushPendingLog();
   }, []);
+
+  function flushPendingLog() {
+    const e = pendingLastLog.current;
+    pendingLastLog.current = null;
+    if (e) logStruggle(e).catch(() => {});
+  }
 
   const updatePage = useCallback((next: Page) => {
     setPages((ps) => ps.map((p) => (p.id === next.id ? next : p)));
@@ -112,6 +122,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
     async (force = false, finished = false) => {
       const p = pageRef.current;
       if (!p) return;
+      if (finished || force) flushPendingLog(); // the line below was started: the one above is final
       if (inFlight.current) {
         recheck.current = true;
         return;
@@ -137,15 +148,19 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
       setCheckError(null);
       try {
         // Lines we've already read (same strokes) are sent as text; Gemini only reads the new ones.
+        // "Check page" and "I fixed it" re-read everything: the student's way out of a misread.
         const known: ReadLine[] = [];
-        for (const l of lines) {
-          const hit = readCache.current.get(lineKey(l));
-          if (hit) known.push({ ...hit, index: l.index });
+        if (!force) {
+          for (const l of lines) {
+            const hit = readCache.current.get(lineKey(l));
+            if (hit) known.push({ ...hit, index: l.index });
+          }
         }
         const unread = lines.filter((l) => !known.some((k) => k.index === l.index));
-        // The image only needs the unread lines, plus the line above them for context.
+        // The image only needs the unread lines, plus two lines above them for context (the problem
+        // statement helps the reader disambiguate digits and signs).
         const first = unread.length ? lines.indexOf(unread[0]) : lines.length - 1;
-        const shown = lines.slice(Math.max(0, first - 1));
+        const shown = lines.slice(Math.max(0, first - 2));
         const region = shown.reduce((u, l) => union(u, l.box), shown[0].box);
         const png = await renderToPng(p.strokes, region, { lineNumbers: shown });
         const body: CheckRequest = { pageId: p.id, png, lines, demoId: p.demoId, known };
@@ -157,26 +172,50 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
         if (!now || now.id !== p.id) return;
         const live = new Set(now.strokes.map((s) => s.id));
         if (!lines.every((l) => l.strokeIds.every((id) => live.has(id)))) return;
-        const r = json as CheckResult;
+        let r = json as CheckResult;
         for (const l of r.lines) {
           const box = lines.find((b) => b.index === l.index);
           if (box && l.readConfidence >= 0.5) readCache.current.set(lineKey(box), toReadLine(l));
         }
+        // A flagged step is sometimes a misread of that line or the one above it (the reader's
+        // confidence is not reliable). Forget both readings so the next check looks at them again.
+        if (r.firstErrorIndex != null) {
+          for (const b of lines) if (b.index === r.firstErrorIndex || b.index === r.firstErrorIndex - 1) readCache.current.delete(lineKey(b));
+        }
         if (!writing && version.current === v) checkedVersion.current = v; // a partial check leaves the last line for later
 
-        if (hadError.current && r.firstErrorIndex == null) setToast("Nice fix!");
-        hadError.current = r.firstErrorIndex != null;
-        setResult(r);
-        setCheckedBoxes(lines);
-        if (r.firstErrorIndex == null) setOpenLine(null);
-        if (p.quiz?.length) setGrades(gradeQuiz(p.quiz, r.lines));
+        if (writing) {
+          // A partial check left out the line being written. If that line carried the red mark,
+          // keep the mark (and the open hint) until a full check says otherwise.
+          setResult((prev) => {
+            const kept = prev?.lines.find((l) => l.index === prev.firstErrorIndex && l.index > lines.length);
+            if (kept && r.firstErrorIndex == null) r = { ...r, lines: [...r.lines, kept], firstErrorIndex: kept.index };
+            return r;
+          });
+          setCheckedBoxes((prev) => [...lines, ...prev.filter((b) => b.index > lines.length)]);
+        } else {
+          if (hadError.current && r.firstErrorIndex == null) setToast("Nice fix!");
+          hadError.current = r.firstErrorIndex != null;
+          setResult(r);
+          setCheckedBoxes(lines);
+          if (r.firstErrorIndex == null) setOpenLine(null);
+          // Quiz pages: each check covers one answer block, so merge instead of replacing the other grades.
+          if (p.quiz?.length) setGrades((g) => ({ ...g, ...gradeQuiz(p.quiz!, r.lines) }));
+        }
 
-        // Struggle log for mastery: one event per judged line, keyed by its strokes so re-checks don't double count.
+        // Struggle log for mastery: one event per judged line, keyed by its strokes so re-checks don't
+        // double count. The block's last line is held back until the student moves past it (see pendingLastLog).
+        const lastIndex = lines[lines.length - 1].index;
         for (const l of r.lines) {
           if (!l.topic || l.verdict === "unclear") continue;
           const box = lines.find((b) => b.index === l.index);
           if (!box) continue;
-          logStruggle({ key: hash([...box.strokeIds].sort().join(",")), pageId: p.id, topic: l.topic, misconception: l.misconception, correct: l.verdict === "correct", at: Date.now() }).catch(() => {});
+          const event: StruggleEvent = { key: hash([...box.strokeIds].sort().join(",")), pageId: p.id, topic: l.topic, misconception: l.misconception, correct: l.verdict === "correct", at: Date.now() };
+          if (l.index === lastIndex && !finished && !force) {
+            const held = pendingLastLog.current;
+            if (held && held.key !== event.key) logStruggle(held).catch(() => {}); // a different line was held: it's final now
+            pendingLastLog.current = event;
+          } else logStruggle(event).catch(() => {});
         }
       } catch (e) {
         setCheckError(e instanceof Error ? e.message : "The tutor couldn't check this page.");
@@ -364,7 +403,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
 
           {openLine && errLine && tool.tutorMode && (
             <HintCard
-              key={`${openLine.index}-${openLine.text}`}
+              key={`${errLine.index}-${errLine.text}`}
               line={errLine}
               context={result?.lines ?? []}
               mock={mock}

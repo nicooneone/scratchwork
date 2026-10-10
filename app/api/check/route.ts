@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         parts: [png(body.png), { text: `Transcribe these lines: ${labels}.` }],
         schema: READER_SCHEMA,
         thinking: "minimal",
-        prefer: "fast",
+        prefer: "smart", // accuracy over the ~1 s Lite saves: a misread line poisons every later check
       });
       const fresh = (data.lines ?? [])
         .filter((l) => !toRead.length || toRead.some((b) => b.index === l.index))

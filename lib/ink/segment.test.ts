@@ -57,4 +57,13 @@ describe("segmentLines", () => {
     expect(l.box.x).toBeCloseTo(100 - 1.5 - 8);
     expect(l.box.y).toBeCloseTo(100 - 1.5 - 8);
   });
+
+  it("the first short stroke of a new line is not merged into the line above", () => {
+    // A full line (two strokes, 50 tall), then a lone short "x" started 20 units below it at the left margin.
+    const line1 = [s(80, 100, 220, 50), s(320, 100, 180, 50)];
+    const firstX = s(80, 170, 20, 25);
+    const lines = segmentLines([...line1, firstX]);
+    expect(lines).toHaveLength(2);
+    expect(lines[1].strokeIds).toEqual([firstX.id]);
+  });
 });
