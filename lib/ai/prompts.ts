@@ -18,8 +18,8 @@ Write math as plain ASCII that a calculator parser understands:
 Classify each line's kind:
 - "equation": contains one "=" relating two sides (e.g. 3*x - 12 = 2*x + 7, x = 14)
 - "expression": a continuation like "= 2*x + 6", or a bare expression
-- "integral": an integral and its result. Give "integrand" (without "dx"), "result" (without "+ C"), and for definite integrals "lower" and "upper"
-- "derivative": a derivative and its result, e.g. d/dx (x^3) = 3*x^2. Give "expr" (what is differentiated) and "result"
+- "integral": an integral and its result. You MUST give "integrand" (without "dx"), "result" (without "+ C"), and for definite integrals "lower" and "upper"
+- "derivative": a derivative and its result, e.g. d/dx (x^3) = 3*x^2. You MUST give "expr" (what is differentiated, e.g. x^3*sin(x)) and "result" (e.g. 3*x^2*cos(x))
 - "text": words, not math
 - "other": anything else
 

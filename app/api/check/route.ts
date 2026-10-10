@@ -12,6 +12,19 @@ export const maxDuration = 30;
 
 const NO_BOX: Box = { x: 0, y: 0, w: 0, h: 0 };
 
+/** Gemini sometimes leaves the calculus fields empty; recover them from the line text. */
+function fillCalculusFields(l: ReadLine): ReadLine {
+  if (l.kind === "derivative" && (!l.expr || !l.result)) {
+    const m = l.text.match(/d\s*\/\s*dx\s*(.+?)\s*=\s*(.+)$/i);
+    if (m) return { ...l, expr: l.expr || m[1].replace(/^\((.*)\)$/, "$1"), result: l.result || m[2] };
+  }
+  if (l.kind === "integral" && (!l.integrand || !l.result)) {
+    const m = l.text.match(/(?:integral of|∫)\s*(.+?)\s*d[a-z]\s*=\s*(.+)$/i);
+    if (m) return { ...l, integrand: l.integrand || m[1], result: l.result || m[2].replace(/\+\s*C\s*$/i, "").trim() };
+  }
+  return l;
+}
+
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as CheckRequest | null;
   if (wantsMock(request)) return Response.json({ ...checkError, pageId: body?.pageId ?? checkError.pageId });
@@ -31,7 +44,7 @@ export async function POST(request: Request) {
     read = (data.lines ?? [])
       .filter((l) => !lineBoxes.length || lineBoxes.some((b) => b.index === l.index))
       .sort((a, b) => a.index - b.index)
-      .map((l) => ({ ...l, topic: kebab(l.topic), misconception: kebab(l.misconception) }));
+      .map((l) => fillCalculusFields({ ...l, topic: kebab(l.topic), misconception: kebab(l.misconception) }));
   } catch (err) {
     return aiUnavailable(err);
   }
@@ -47,7 +60,7 @@ export async function POST(request: Request) {
       verifiedBy: useMath ? "math" : "ai",
       note: math?.note,
       // A misconception only makes sense on a wrong line.
-      misconception: (useMath ? math.verdict : line.aiVerdict) === "error" ? line.misconception : undefined,
+      misconception: (useMath ? math.verdict : line.aiVerdict) === "error" ? (line.misconception ?? "step-not-equivalent") : undefined,
     };
   });
 
