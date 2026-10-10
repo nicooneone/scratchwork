@@ -1,7 +1,7 @@
 // Owner: D. GET /api/health — is the AI wired up on THIS deployment?
-// Shows which keys are set (never their values) and live-pings both providers, so a "503 from
+// Shows which keys are set (never their values); pings use the first Gemini key and live-pings both providers, so a "503 from
 // the tutor" can be diagnosed from a phone in ten seconds instead of guessing at Vercel settings.
-import { FALLBACK_MODEL, MODEL, ai } from "@/lib/ai/gemini";
+import { FALLBACK_MODEL, MODEL, ai, keyCount } from "@/lib/ai/gemini";
 
 export const maxDuration = 30;
 
@@ -41,6 +41,7 @@ export async function GET() {
   const body = {
     env: {
       GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
+      GEMINI_KEYS: keyCount(), // several keys, comma-separated, rotate when one hits its quota
       ELEVENLABS_API_KEY: !!process.env.ELEVENLABS_API_KEY,
       ELEVENLABS_VOICE_ID: !!process.env.ELEVENLABS_VOICE_ID,
       GEMINI_MODEL: MODEL,
