@@ -1,0 +1,7 @@
+{
+  "level": 1,
+  "line": { "index": 2, "kind": "equation", "text": "3*x + 12 + 5 = 2*x + 7", "latex": "3x+12+5=2x+7", "readConfidence": 0.93, "aiVerdict": "error", "misconception": "sign-error-distributing", "topic": "distributing", "box": { "x": 90, "y": 240, "w": 500, "h": 70 }, "verdict": "error", "verifiedBy": "math" },
+  "context": [
+    { "index": 1, "kind": "equation", "text": "3*(x - 4) + 5 = 2*x + 7", "latex": "3(x-4)+5=2x+7", "readConfidence": 0.96, "aiVerdict": "correct", "box": { "x": 90, "y": 150, "w": 520, "h": 70 }, "verdict": "correct", "verifiedBy": "math" }
+  ]
+}

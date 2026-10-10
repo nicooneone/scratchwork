@@ -1,0 +1,7 @@
+{
+  "pageId": "fixture-page",
+  "firstErrorIndex": null,
+  "lines": [
+    { "index": 1, "kind": "integral", "text": "integral of 2*x*cos(x^2) dx = sin(x^2) + C", "latex": "\\int 2x\\cos(x^2)\\,dx = \\sin(x^2)+C", "integrand": "2*x*cos(x^2)", "result": "sin(x^2)", "readConfidence": 0.92, "aiVerdict": "correct", "topic": "u-substitution", "box": { "x": 90, "y": 150, "w": 640, "h": 90 }, "verdict": "correct", "verifiedBy": "math" }
+  ]
+}

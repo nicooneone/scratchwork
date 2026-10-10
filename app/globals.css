@@ -1,26 +1,35 @@
 @import "tailwindcss";
 
+/* Scratchwork identity: warm paper, ink-blue UI, red pen reserved for the AI tutor's marks. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper: #fdfcf8;
+  --desk: #f0ede4;
+  --ink: #1d2a44;
+  --ink-soft: #5a6680;
+  --rule: #d9dde6;
+  --pen: #c8322b;
+  --ok: #2f7d4f;
+  --template-line: #c9d6ea;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-paper: var(--paper);
+  --color-desk: var(--desk);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-rule: var(--rule);
+  --color-pen: var(--pen);
+  --color-ok: var(--ok);
+  --font-sans: var(--font-ui), system-ui, -apple-system, sans-serif;
+  --font-hand: var(--font-hand), "Bradley Hand", cursive;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--desk);
+  color: var(--ink);
+  font-family: var(--font-ui), system-ui, -apple-system, sans-serif;
+  /* No text selection, callouts or tap highlights anywhere near the ink. */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
 }

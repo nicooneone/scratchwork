@@ -1,0 +1,1 @@
+{ "transcript": "Chain rule: d/dx f(g(x)) = f'(g(x)) * g'(x). Example: d/dx sin(x^2) = 2x cos(x^2).", "summary": "Chain rule definition with a worked example.", "topics": ["chain-rule", "derivatives"], "indexedAt": 0 }

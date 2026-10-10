@@ -1,36 +1,25 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Scratchwork
 
-## Getting Started
+**The iPad notebook that checks your thinking, not just your answer.** Built at HackRU Fall 2026 (Education track).
 
-First, run the development server:
+Write math with an Apple Pencil like you would in GoodNotes. Pause, and Scratchwork reads your handwriting, verifies every step with a math engine, and circles the first wrong line in red pen. Tap the note for a spoken, Socratic hint. Ask questions about everything in your notebooks, and get quizzed on the topics you struggle with.
+
+> Work in progress — this README is finished in Step 8 of [`docs/PLAN.md`](docs/PLAN.md).
+
+## Run it
 
 ```bash
+npm install
+cp .env.example .env.local   # then add your keys
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000. On an iPad, open the deployed URL in Safari → Share → **Add to Home Screen**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Next.js · TypeScript · Tailwind · perfect-freehand · Dexie (IndexedDB) · Gemini API · ElevenLabs · mathjs · Vercel
 
-## Learn More
+## Team
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Built by a team of four at HackRU F26. AI-assisted coding tools were used during the hackathon.
