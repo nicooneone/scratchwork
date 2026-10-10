@@ -2,7 +2,7 @@
 // Owner: C. The tutor's note for the first wrong line: Socratic hint ladder (1 -> 3), spoken aloud,
 // "Another hint", "I fixed it". Never shows the corrected line; the server's leak guard enforces that.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { speak, stopSpeaking, unlockAudio } from "@/lib/voice";
+import { canListen, listen, speak, stopSpeaking, unlockAudio } from "@/lib/voice";
 import type { CheckedLine, HintRequest, HintResponse } from "@/lib/types";
 import { Icon } from "@/components/ui/icons";
 import { Squiggle } from "@/components/ui/Squiggle";
@@ -25,14 +25,16 @@ export function HintCard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [speaking, setSpeaking] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [micOk] = useState(() => canListen());
   const autoSpeak = useRef(true);
 
   const fetchHint = useCallback(
-    async (lvl: 1 | 2 | 3) => {
+    async (lvl: 1 | 2 | 3, studentReply?: string) => {
       setLoading(true);
       setError(null);
       try {
-        const body: HintRequest = { line, context, level: lvl };
+        const body: HintRequest = { line, context, level: lvl, studentReply };
         const res = await fetch(`/api/hint${mock ? "?mock=1" : ""}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
         if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "The tutor is unavailable right now.");
         const data = (await res.json()) as HintResponse;
@@ -94,6 +96,24 @@ export function HintCard({
         >
           {speaking ? <Icon.stop size={16} /> : <Icon.play size={16} />}
         </button>
+        {micOk && (
+          <button
+            aria-label={listening ? "Listening" : "Answer out loud"}
+            disabled={!current || loading || listening}
+            onClick={() => {
+              unlockAudio(); // inside the tap, so the tutor's spoken reply can play on iPad
+              stopSpeaking();
+              setListening(true);
+              listen()
+                .then((reply) => fetchHint(level, reply))
+                .catch((e: Error) => setError(e.message))
+                .finally(() => setListening(false));
+            }}
+            className={`flex h-11 w-11 items-center justify-center rounded-full border border-rule disabled:opacity-40 ${listening ? "animate-pulse border-mark text-mark" : ""}`}
+          >
+            <MicIcon />
+          </button>
+        )}
         <button
           disabled={level === 3 || loading}
           onClick={() => {
@@ -116,6 +136,15 @@ export function HintCard({
         ))}
       </div>
     </div>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+    </svg>
   );
 }
 

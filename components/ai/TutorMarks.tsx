@@ -29,9 +29,11 @@ function ErrorMark({ line, onOpen }: { line: CheckedLine; onOpen(): void }) {
   const rx = w / 2 + 18, ry = h / 2 + 12;
   const d = wobblyEllipse(cx, cy, rx, ry, line.index);
   const len = Math.round(Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry))) * 1.15);
-  // Margin tab sits to the right of the line, clamped onto the page.
-  const tabX = Math.min(x + w + 30, 1000 - 150);
-  const tabY = cy - 26;
+  // Margin tab sits to the right of the line; if the line runs too far right, it goes just below
+  // the line's right end instead, so it never covers the student's writing.
+  const fitsRight = x + w + 30 + 150 <= 1000;
+  const tabX = fitsRight ? x + w + 30 : Math.max(20, Math.min(x + w - 150, 1000 - 160));
+  const tabY = fitsRight ? cy - 26 : y + h + ry - h / 2 + 8;
 
   return (
     <g>

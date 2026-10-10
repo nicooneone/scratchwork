@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import PageCanvas, { type PageCanvasHandle } from "@/components/canvas/PageCanvas";
 import { addPage, db, getNotebook, getPages, logStruggle, savePage } from "@/lib/db";
 import { renderToPng } from "@/lib/ink/export";
+import { currentBlock } from "@/lib/ink/blocks";
 import { segmentLines } from "@/lib/ink/segment";
 import { INK_COLORS, TOOL_PRESETS } from "@/lib/ink/tools";
 import { unlockAudio } from "@/lib/voice";
@@ -49,6 +50,8 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
   const version = useRef(0); // bumps on every stroke change; stale check results are dropped
   const checkedVersion = useRef(-1);
   const inFlight = useRef(false);
+  const recheck = useRef(false); // a pause happened while a check was running: check again after it
+  const [checkedBoxes, setCheckedBoxes] = useState<LineBox[]>([]); // the lines (and their strokes) the result is about
   const hadError = useRef(false);
 
   const page = pages.find((p) => p.id === currentId) ?? null;
@@ -101,9 +104,14 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
   const runCheck = useCallback(
     async (force = false) => {
       const p = pageRef.current;
-      if (!p || inFlight.current) return;
+      if (!p) return;
+      if (inFlight.current) {
+        recheck.current = true;
+        return;
+      }
       if (!force && checkedVersion.current === version.current) return;
-      const lines: LineBox[] = segmentLines(p.strokes);
+      // Only the problem being worked on (the block with the newest stroke), numbered L1..Ln.
+      const lines: LineBox[] = currentBlock(segmentLines(p.strokes), p.strokes);
       if (lines.length === 0) {
         setResult(null);
         return;
@@ -126,6 +134,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
         if (hadError.current && r.firstErrorIndex == null) setToast("Nice fix!");
         hadError.current = r.firstErrorIndex != null;
         setResult(r);
+        setCheckedBoxes(lines);
         if (r.firstErrorIndex == null) setOpenLine(null);
         if (p.quiz?.length) setGrades(gradeQuiz(p.quiz, r.lines));
 
@@ -141,10 +150,19 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
       } finally {
         inFlight.current = false;
         setChecking(false);
+        if (recheck.current) {
+          recheck.current = false;
+          setTimeout(() => runCheckRef.current(), 0);
+        }
       }
     },
     [mock],
   );
+
+  const runCheckRef = useRef(runCheck);
+  useEffect(() => {
+    runCheckRef.current = runCheck;
+  }, [runCheck]);
 
   const onChange = useCallback(
     (strokes: Stroke[]) => {
@@ -197,7 +215,13 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
     );
   if (!notebook || !page) return <main className="min-h-[100dvh] bg-desk" />;
 
-  const errLine = result?.lines.find((l) => l.index === result.firstErrorIndex);
+  // If the student erased (part of) the wrong line, drop its red mark right away instead of
+  // waiting for the next check.
+  const errBox = checkedBoxes.find((b) => b.index === result?.firstErrorIndex);
+  const liveIds = new Set(page.strokes.map((s) => s.id));
+  const errErased = !!errBox && errBox.strokeIds.some((id) => !liveIds.has(id));
+  const shown: CheckResult | null = result && errErased ? { ...result, firstErrorIndex: null, lines: result.lines.filter((l) => l.index !== result.firstErrorIndex) } : result;
+  const errLine = shown?.lines.find((l) => l.index === shown.firstErrorIndex);
 
   return (
     <main className="flex h-[100dvh] flex-col overflow-hidden bg-desk">
@@ -255,9 +279,9 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
           >
             {snippet && <rect x={snippet.box.x} y={snippet.box.y} width={snippet.box.w} height={snippet.box.h} rx={8} fill="rgba(36,86,201,.06)" stroke="#2456c9" strokeDasharray="8 6" strokeWidth={2} />}
             {page.quiz?.length ? <QuizOverlay questions={page.quiz} grades={grades} /> : null}
-            {tool.tutorMode && result && (
+            {tool.tutorMode && shown && (
               <TutorMarks
-                result={result}
+                result={shown}
                 onOpen={(l) => {
                   unlockAudio(); // inside the tap, so the spoken hint can play on iPad
                   setOpenLine(l);
