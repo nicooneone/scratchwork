@@ -13,7 +13,7 @@ import { currentBlock } from "@/lib/ink/blocks";
 import { segmentLines } from "@/lib/ink/segment";
 import { INK_COLORS, TOOL_PRESETS } from "@/lib/ink/tools";
 import { unlockAudio } from "@/lib/voice";
-import type { Box, CheckRequest, CheckResult, CheckedLine, LineBox, Notebook, Page, PageBrain, QuizQuestion, Stroke, TemplateId, ToolState, Verdict } from "@/lib/types";
+import { PAGE_H, type Box, type CheckRequest, type CheckResult, type CheckedLine, type LineBox, type Notebook, type Page, type PageBrain, type QuizQuestion, type ReadLine, type Stroke, type TemplateId, type ToolState, type Verdict } from "@/lib/types";
 import { AIPanel } from "@/components/ai/AIPanel";
 import { useBackgroundIndex } from "@/components/ai/useBackgroundIndex";
 import { HintCard } from "@/components/ai/HintCard";
@@ -52,6 +52,8 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
   const checkedVersion = useRef(-1);
   const inFlight = useRef(false);
   const lastStrokeAt = useRef(0); // performance.now() of the last ink change
+  const readCache = useRef(new Map<string, ReadLine>()); // Gemini's reading of each line, keyed by its strokes
+  const areaRef = useRef<HTMLDivElement>(null);
   const lastInkLine = useRef<{ id: string; bottom: number } | null>(null); // line of the previous new stroke
   const recheck = useRef(false); // a pause happened while a check was running: check again after it
   const [checkedBoxes, setCheckedBoxes] = useState<LineBox[]>([]); // the lines (and their strokes) the result is about
@@ -106,7 +108,8 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
 
   // ---------- Live Check ----------
   const runCheck = useCallback(
-    async (force = false) => {
+    /** force: manual check, ignore "nothing changed". finished: every line is done (pen went below them). */
+    async (force = false, finished = false) => {
       const p = pageRef.current;
       if (!p) return;
       if (inFlight.current) {
@@ -121,7 +124,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
         return;
       }
       // Still writing? Then the newest line is half-done: check only the finished lines above it.
-      const writing = !force && performance.now() - lastStrokeAt.current < IDLE_MS - 50;
+      const writing = !force && !finished && performance.now() - lastStrokeAt.current < IDLE_MS - 50;
       if (writing) {
         const newest = newestInkId(p.strokes);
         if (!newest || !lines[lines.length - 1].strokeIds.includes(newest)) return; // editing mid-problem: wait for the pause
@@ -133,9 +136,19 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
       setChecking(true);
       setCheckError(null);
       try {
-        const region = lines.reduce((u, l) => union(u, l.box), lines[0].box);
-        const png = await renderToPng(p.strokes, region, { lineNumbers: lines });
-        const body: CheckRequest = { pageId: p.id, png, lines, demoId: p.demoId };
+        // Lines we've already read (same strokes) are sent as text; Gemini only reads the new ones.
+        const known: ReadLine[] = [];
+        for (const l of lines) {
+          const hit = readCache.current.get(lineKey(l));
+          if (hit) known.push({ ...hit, index: l.index });
+        }
+        const unread = lines.filter((l) => !known.some((k) => k.index === l.index));
+        // The image only needs the unread lines, plus the line above them for context.
+        const first = unread.length ? lines.indexOf(unread[0]) : lines.length - 1;
+        const shown = lines.slice(Math.max(0, first - 1));
+        const region = shown.reduce((u, l) => union(u, l.box), shown[0].box);
+        const png = await renderToPng(p.strokes, region, { lineNumbers: shown });
+        const body: CheckRequest = { pageId: p.id, png, lines, demoId: p.demoId, known };
         const res = await fetch(`/api/check${mock ? "?mock=1" : ""}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "The tutor couldn't check this page.");
@@ -145,6 +158,10 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
         const live = new Set(now.strokes.map((s) => s.id));
         if (!lines.every((l) => l.strokeIds.every((id) => live.has(id)))) return;
         const r = json as CheckResult;
+        for (const l of r.lines) {
+          const box = lines.find((b) => b.index === l.index);
+          if (box && l.readConfidence >= 0.5) readCache.current.set(lineKey(box), toReadLine(l));
+        }
         if (!writing && version.current === v) checkedVersion.current = v; // a partial check leaves the last line for later
 
         if (hadError.current && r.firstErrorIndex == null) setToast("Nice fix!");
@@ -290,7 +307,25 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
           />
         )}
 
-        <div className="relative min-w-0 flex-1">
+        <div
+          ref={areaRef}
+          className="relative min-w-0 flex-1"
+          // Fastest trigger: the moment the pen touches down BELOW the problem, every line above is finished.
+          onPointerDownCapture={(e) => {
+            if (!tool.tutorMode || !["pen", "fineliner", "pencil"].includes(tool.tool)) return;
+            if (e.pointerType !== "pen" && !tool.drawWithFinger && e.pointerType !== "mouse") return;
+            const canvas = areaRef.current?.querySelector("canvas");
+            const p = pageRef.current;
+            if (!canvas || !p) return;
+            if ((e.target as Element).closest("[data-ui], aside")) return; // a tap on the hint card or AI panel
+            const rect = canvas.getBoundingClientRect();
+            if (e.clientX < rect.left || e.clientX > rect.right) return;
+            const y = ((e.clientY - rect.top) / rect.height) * PAGE_H;
+            const lines = currentBlock(segmentLines(p.strokes), p.strokes);
+            const last = lines[lines.length - 1];
+            if (last && y > last.box.y + last.box.h - 4) runCheck(false, true);
+          }}
+        >
           <PageCanvas
             key={page.id}
             ref={canvasRef}
@@ -377,4 +412,17 @@ function newestInkId(strokes: Stroke[]): string | null {
     if (!newest || s.createdAt >= newest.createdAt) newest = s;
   }
   return newest?.id ?? null;
+}
+
+/** A line's identity is its strokes: same strokes = same reading. */
+function lineKey(l: LineBox): string {
+  return [...l.strokeIds].sort().join(",");
+}
+
+/** Keep only what Gemini read (not the verdict), so it can be re-verified later. */
+function toReadLine(l: CheckedLine): ReadLine {
+  return {
+    index: l.index, kind: l.kind, text: l.text, latex: l.latex, integrand: l.integrand, result: l.result, expr: l.expr,
+    lower: l.lower, upper: l.upper, readConfidence: l.readConfidence, aiVerdict: l.aiVerdict, misconception: l.misconception, topic: l.topic,
+  };
 }

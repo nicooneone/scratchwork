@@ -32,23 +32,32 @@ export async function POST(request: Request) {
   if (body.png.length > MAX_PNG_BASE64) return badRequest("Image too large. Export at most 1600 px.");
   const lineBoxes = body.lines ?? [];
 
-  let read: ReadLine[];
-  try {
-    const labels = lineBoxes.length ? lineBoxes.map((l) => `L${l.index}`).join(", ") : "every line you can see (number them L1, L2, ... top to bottom)";
-    const { data } = await generateJson<{ lines: ReadLine[] }>({
-      system: READER_SYSTEM,
-      parts: [png(body.png), { text: `Transcribe these lines: ${labels}.` }],
-      schema: READER_SCHEMA,
-      thinking: "minimal",
-      prefer: "fast",
-    });
-    read = (data.lines ?? [])
-      .filter((l) => !lineBoxes.length || lineBoxes.some((b) => b.index === l.index))
-      .sort((a, b) => a.index - b.index)
-      .map((l) => fillCalculusFields({ ...l, topic: kebab(l.topic), misconception: kebab(l.misconception) }));
-  } catch (err) {
-    return aiUnavailable(err);
+  // Speed: lines the client already has readings for (unchanged ink) are not re-read.
+  // Gemini's latency is mostly output length, so reading 1 new line instead of 6 is much faster,
+  // and when every line is known we skip Gemini entirely and only re-run the math.
+  const known = (body.known ?? []).filter((k) => lineBoxes.some((b) => b.index === k.index));
+  const toRead = lineBoxes.filter((b) => !known.some((k) => k.index === b.index));
+
+  let read: ReadLine[] = known;
+  if (toRead.length || !lineBoxes.length) {
+    try {
+      const labels = toRead.length ? toRead.map((l) => `L${l.index}`).join(", ") : "every line you can see (number them L1, L2, ... top to bottom)";
+      const { data } = await generateJson<{ lines: ReadLine[] }>({
+        system: READER_SYSTEM,
+        parts: [png(body.png), { text: `Transcribe these lines: ${labels}.` }],
+        schema: READER_SCHEMA,
+        thinking: "minimal",
+        prefer: "fast",
+      });
+      const fresh = (data.lines ?? [])
+        .filter((l) => !toRead.length || toRead.some((b) => b.index === l.index))
+        .map((l) => fillCalculusFields({ ...l, topic: kebab(l.topic), misconception: kebab(l.misconception) }));
+      read = [...known, ...fresh];
+    } catch (err) {
+      return aiUnavailable(err);
+    }
   }
+  read = read.sort((a, b) => a.index - b.index);
 
   const verdicts = verifyLines(read);
   const lines: CheckedLine[] = read.map((line, i) => {

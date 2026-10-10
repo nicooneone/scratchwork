@@ -107,6 +107,9 @@ export interface CheckRequest {
   png: string; // base64, no data: prefix
   lines: LineBox[];
   demoId?: string;
+  /** Appended (speed): lines the client already has readings for, by this request's line index.
+   *  The server skips re-reading them and only asks Gemini about the rest. */
+  known?: ReadLine[];
 }
 
 // ---------- Notebook Brain / Ask / Quiz ----------
