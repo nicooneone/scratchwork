@@ -2,7 +2,8 @@
 // add fields/types, never rename or remove without telling the team first.
 
 // ---------- Ink ----------
-export type ToolKind = "pen" | "fineliner" | "pencil" | "highlighter" | "eraser-stroke" | "eraser-precise" | "lasso"; // "lasso" appended in Step 1
+// "lasso" selects a region (never saved as a stroke).
+export type ToolKind = "pen" | "fineliner" | "pencil" | "highlighter" | "eraser-stroke" | "eraser-precise" | "lasso";
 export type TemplateId = "blank" | "lined" | "grid" | "dot" | "cornell" | "graph";
 
 /** One input sample: x, y in page units (page is 1000 × 1414), pressure 0–1. */
@@ -14,9 +15,11 @@ export interface Stroke {
   color: string; // CSS color, e.g. "#1d2a44"
   size: number; // base width in page units
   points: Pt[];
-  /** ms since stroke start for each point (appended in Step 1; for replay / hesitation). */
+  /** ms since stroke start for each point (for replay / hesitation analysis). */
   times?: number[];
   createdAt: number;
+  /** True when drawn with a mouse/finger (no real pressure): the renderer simulates pressure from speed. */
+  simulated?: boolean;
 }
 
 export interface ToolState {

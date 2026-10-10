@@ -1,63 +1,77 @@
-// Owner: A. Render a region of a page to a PNG for Gemini.
-// Step 0 version: simple polyline replay + gray L1:, L2: labels in a left margin.
-// Step 1 replaces the polylines with perfect-freehand outlines (same signature).
+// Owner: A. Renders a page region to a PNG for the AI to read.
+// Ink only (no template, no highlighter) on white, with precise erases applied, plus gray
+// "L1:", "L2:" … labels in a left margin so Gemini can say which line is which.
 import type { Box, LineBox, Stroke } from "../types";
+import { drawStroke } from "./render";
 
 const MARGIN = 60; // page units added on the left for line labels
-const MAX_EDGE = 1600; // px
+const MAX_EDGE = 1600; // px, keeps requests well under Vercel's 4.5 MB body limit
+const PAD = 12;
 
 export async function renderToPng(
   strokes: Stroke[],
   region: Box,
   opts: { lineNumbers?: LineBox[] } = {},
 ): Promise<string> {
-  const r = { x: region.x - MARGIN, y: region.y, w: region.w + MARGIN, h: region.h };
+  const labels = opts.lineNumbers ?? [];
+  const r = {
+    x: region.x - PAD - (labels.length ? MARGIN : 0),
+    y: region.y - PAD,
+    w: region.w + PAD * 2 + (labels.length ? MARGIN : 0),
+    h: region.h + PAD * 2,
+  };
   const scale = Math.min(2, MAX_EDGE / Math.max(r.w, r.h));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(r.w * scale));
   canvas.height = Math.max(1, Math.round(r.h * scale));
   const ctx = canvas.getContext("2d")!;
   ctx.setTransform(scale, 0, 0, scale, -r.x * scale, -r.y * scale);
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
 
-  // Ink in order; precise erases cut through earlier ink. Highlighter is skipped.
+  // 1. Replay ink in order on a transparent canvas, so precise erases remove what's under them.
   for (const s of strokes) {
-    if (s.tool === "highlighter" || s.tool === "lasso" || s.tool === "eraser-stroke") continue;
-    if (s.points.length === 0) continue;
-    ctx.globalCompositeOperation = s.tool === "eraser-precise" ? "destination-out" : "source-over";
-    ctx.strokeStyle = s.tool === "eraser-precise" ? "#000" : "#000"; // black ink reads best
-    ctx.lineWidth = Math.max(2, s.size);
-    ctx.beginPath();
-    ctx.moveTo(s.points[0][0], s.points[0][1]);
-    for (const [x, y] of s.points) ctx.lineTo(x, y);
-    if (s.points.length === 1) ctx.lineTo(s.points[0][0] + 0.1, s.points[0][1]);
-    ctx.stroke();
+    if (s.tool === "highlighter") continue;
+    drawStroke(ctx, s, { plainPencil: true });
   }
 
-  // White paper underneath everything drawn so far.
-  ctx.globalCompositeOperation = "destination-over";
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(r.x, r.y, r.w, r.h);
-  ctx.globalCompositeOperation = "source-over";
-
-  // Margin rule + line labels.
-  if (opts.lineNumbers?.length) {
-    ctx.strokeStyle = "#bbb";
-    ctx.lineWidth = 1;
+  // 2. Line labels and a margin rule.
+  if (labels.length) {
+    const ruleX = r.x + MARGIN - 8;
+    ctx.save();
+    ctx.strokeStyle = "#c4c9d4";
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(region.x - 6, r.y);
-    ctx.lineTo(region.x - 6, r.y + r.h);
+    ctx.moveTo(ruleX, r.y);
+    ctx.lineTo(ruleX, r.y + r.h);
     ctx.stroke();
-    ctx.fillStyle = "#999";
-    ctx.font = "18px sans-serif";
+    ctx.fillStyle = "#8a93a6";
+    ctx.font = "600 20px ui-monospace, Menlo, monospace";
     ctx.textBaseline = "middle";
-    for (const l of opts.lineNumbers) {
-      ctx.fillText(`L${l.index + 1}:`, r.x + 6, l.box.y + l.box.h / 2);
+    for (const line of labels) ctx.fillText(`L${line.index}:`, r.x + 4, line.box.y + line.box.h / 2);
+    ctx.restore();
+  }
+
+  // 3. White paper behind everything.
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = "destination-over";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+
+  return canvas.toDataURL("image/png").split(",")[1];
+}
+
+/** Bounding box of a set of strokes, in page units (null if empty). */
+export function strokesBounds(strokes: Stroke[]): Box | null {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const s of strokes) {
+    const half = s.size / 2;
+    for (const [x, y] of s.points) {
+      x0 = Math.min(x0, x - half);
+      y0 = Math.min(y0, y - half);
+      x1 = Math.max(x1, x + half);
+      y1 = Math.max(y1, y + half);
     }
   }
-
-  const url = canvas.toDataURL("image/png");
-  canvas.width = 0; // free memory on iPad
-  return url.slice(url.indexOf(",") + 1);
+  return x0 === Infinity ? null : { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
