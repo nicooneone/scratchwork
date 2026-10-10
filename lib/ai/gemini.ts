@@ -1,5 +1,5 @@
 // Owner: D. Server-only Gemini client. Append-only after Step 0.
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 /** Model ids are configurable. Tested 10 Oct 2026: gemini-2.5-* is closed to new keys (404); gemini-3.8-flash and gemini-flash-latest hang > 40 s on the free tier. */
 export const MODEL = process.env.GEMINI_MODEL ?? "gemini-3.5-flash";
@@ -16,3 +16,52 @@ export function ai(): GoogleGenAI {
   }
   return client;
 }
+
+const THINKING = { minimal: ThinkingLevel.MINIMAL, low: ThinkingLevel.LOW, medium: ThinkingLevel.MEDIUM } as const;
+
+export type Part = { text: string } | { inlineData: { mimeType: string; data: string } };
+
+export interface JsonCall {
+  system: string;
+  parts: Part[];
+  /** JSON Schema for the response. */
+  schema: object;
+  /** "minimal" for reading/transcribing, "low" for tutoring and Q&A. */
+  thinking?: "minimal" | "low" | "medium";
+  temperature?: number;
+  timeoutMs?: number;
+}
+
+/**
+ * Ask Gemini for JSON matching `schema`. Tries MODEL, then FALLBACK_MODEL if the first one
+ * fails (rate limit, overload, timeout). Throws only if both fail.
+ */
+export async function generateJson<T>(call: JsonCall): Promise<{ data: T; model: string; ms: number }> {
+  let lastError: unknown;
+  for (const model of [MODEL, FALLBACK_MODEL]) {
+    const start = Date.now();
+    try {
+      const res = await ai().models.generateContent({
+        model,
+        contents: [{ role: "user", parts: call.parts }],
+        config: {
+          systemInstruction: call.system,
+          responseMimeType: "application/json",
+          responseJsonSchema: call.schema,
+          temperature: call.temperature ?? 0,
+          thinkingConfig: { thinkingLevel: THINKING[call.thinking ?? "minimal"] },
+          abortSignal: AbortSignal.timeout(call.timeoutMs ?? 20_000),
+        },
+      });
+      const text = res.text;
+      if (!text) throw new Error("Gemini returned an empty response");
+      return { data: JSON.parse(text) as T, model, ms: Date.now() - start };
+    } catch (err) {
+      lastError = err;
+      console.warn(`[gemini] ${model} failed after ${Date.now() - start} ms:`, String((err as Error)?.message ?? err).slice(0, 200));
+    }
+  }
+  throw lastError;
+}
+
+export const png = (data: string): Part => ({ inlineData: { mimeType: "image/png", data } });
