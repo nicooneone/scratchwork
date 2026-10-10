@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Caveat, IBM_Plex_Sans } from "next/font/google";
+
 import "./globals.css";
 
-const ui = IBM_Plex_Sans({ variable: "--font-ui", subsets: ["latin"], weight: ["400", "500", "600"] });
-const hand = Caveat({ variable: "--font-hand", subsets: ["latin"], weight: ["600", "700"] });
+const ui = { variable: "" };
+const hand = { variable: "" };
 
 export const metadata: Metadata = {
   title: "Scratchwork",

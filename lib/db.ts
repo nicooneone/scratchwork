@@ -69,3 +69,33 @@ export async function logStruggle(event: StruggleEvent): Promise<void> {
 export async function allStruggles(): Promise<StruggleEvent[]> {
   return db().struggles.orderBy("at").toArray();
 }
+
+// ---- Appended in Step 3 (library + notebook view) ----
+
+export async function getNotebook(id: string): Promise<Notebook | undefined> {
+  return db().notebooks.get(id);
+}
+
+export async function renameNotebook(id: string, title: string): Promise<void> {
+  await db().notebooks.update(id, { title, updatedAt: Date.now() });
+}
+
+/** Deletes the notebook and all its pages. */
+export async function deleteNotebook(id: string): Promise<void> {
+  await db().transaction("rw", db().notebooks, db().pages, async () => {
+    await db().pages.where("notebookId").equals(id).delete();
+    await db().notebooks.delete(id);
+  });
+}
+
+export async function allPages(): Promise<Page[]> {
+  return db().pages.toArray();
+}
+
+export async function pageCounts(): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {};
+  await db().pages.each((p) => {
+    counts[p.notebookId] = (counts[p.notebookId] ?? 0) + 1;
+  });
+  return counts;
+}
