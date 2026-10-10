@@ -23,6 +23,10 @@ import { Toolbar } from "@/components/toolbar/Toolbar";
 import { PageRail } from "./PageRail";
 
 const IDLE_MS = 1800; // pause after the last stroke before checking (the pen-down-below trigger is the fast path)
+// An error on the line the student is still on is only shown after this much more quiet time
+// (or as soon as they start the next line / tap Check). Pausing to think mid-line is normal, and a
+// half-written line like "3x + 12 +" looks wrong until it's finished.
+const HOLD_LAST_LINE_MS = 2500;
 
 const SAVE_MS = 500;
 
@@ -61,6 +65,8 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
   // The last line of a block may still be half-written when an idle check runs, so its struggle
   // event is held here and only logged once the student moves below it (or taps Check / I fixed it).
   const pendingLastLog = useRef<StruggleEvent | null>(null);
+  // A result whose only error is on the line still being written, waiting to be shown.
+  const held = useRef<{ r: CheckResult; boxes: LineBox[]; v: number; pageId: string; timer: ReturnType<typeof setTimeout> } | null>(null);
 
   const page = pages.find((p) => p.id === currentId) ?? null;
   const pageRef = useRef(page);
@@ -91,7 +97,25 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
     hadError.current = false;
     lastInkLine.current = null;
     flushPendingLog();
+    dropHeld();
   }, []);
+
+  function dropHeld() {
+    if (held.current) clearTimeout(held.current.timer);
+    held.current = null;
+  }
+
+  /** Show a held last-line error now, if the ink hasn't changed since it was checked. */
+  function revealHeld() {
+    const h = held.current;
+    held.current = null;
+    if (!h) return;
+    clearTimeout(h.timer);
+    if (h.v !== version.current || pageRef.current?.id !== h.pageId) return;
+    hadError.current = true;
+    setResult(h.r);
+    setCheckedBoxes(h.boxes);
+  }
 
   function flushPendingLog() {
     const e = pendingLastLog.current;
@@ -122,7 +146,10 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
     async (force = false, finished = false) => {
       const p = pageRef.current;
       if (!p) return;
-      if (finished || force) flushPendingLog(); // the line below was started: the one above is final
+      if (finished || force) {
+        flushPendingLog(); // the line below was started: the one above is final
+        revealHeld(); // ...so a held error on it can be shown right away
+      }
       if (inFlight.current) {
         recheck.current = true;
         return;
@@ -194,10 +221,23 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
           });
           setCheckedBoxes((prev) => [...lines, ...prev.filter((b) => b.index > lines.length)]);
         } else {
+          dropHeld();
+          const lastIdx = lines[lines.length - 1].index;
+          // Idle check found its only error on the line the student may still be writing: show the
+          // other lines now, hold that mark a little longer (see HOLD_LAST_LINE_MS).
+          const tentative = !finished && !force && r.firstErrorIndex === lastIdx;
           if (hadError.current && r.firstErrorIndex == null) setToast("Nice fix!");
-          hadError.current = r.firstErrorIndex != null;
-          setResult(r);
-          setCheckedBoxes(lines);
+          if (tentative) {
+            const full = r;
+            setResult({ ...r, firstErrorIndex: null, lines: r.lines.filter((l) => l.index !== lastIdx) });
+            setCheckedBoxes(lines);
+            setOpenLine(null);
+            held.current = { r: full, boxes: lines, v, pageId: p.id, timer: setTimeout(revealHeld, HOLD_LAST_LINE_MS) };
+          } else {
+            hadError.current = r.firstErrorIndex != null;
+            setResult(r);
+            setCheckedBoxes(lines);
+          }
           if (r.firstErrorIndex == null) setOpenLine(null);
           // Quiz pages: each check covers one answer block, so merge instead of replacing the other grades.
           if (p.quiz?.length) setGrades((g) => ({ ...g, ...gradeQuiz(p.quiz!, r.lines) }));
@@ -242,6 +282,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
       if (!p) return;
       version.current++;
       lastStrokeAt.current = performance.now();
+      dropHeld();
       updatePage({ ...p, strokes, updatedAt: Date.now() });
       clearTimeout(idleTimer.current);
       if (!tool.tutorMode) return;
@@ -259,7 +300,13 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
     [updatePage, runCheck, tool.tutorMode],
   );
 
-  useEffect(() => () => clearTimeout(idleTimer.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(idleTimer.current);
+      if (held.current) clearTimeout(held.current.timer);
+    },
+    [],
+  );
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 2200);
@@ -362,7 +409,8 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
             const y = ((e.clientY - rect.top) / rect.height) * PAGE_H;
             const lines = currentBlock(segmentLines(p.strokes), p.strokes);
             const last = lines[lines.length - 1];
-            if (last && y > last.box.y + last.box.h - 4) runCheck(false, true);
+            // Clearly below the line (not a low character or a subscript inside its bottom edge).
+            if (last && y > last.box.y + last.box.h + Math.max(8, last.box.h * 0.2)) runCheck(false, true);
           }}
         >
           <PageCanvas

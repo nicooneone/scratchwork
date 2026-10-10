@@ -25,6 +25,17 @@ function fillCalculusFields(l: ReadLine): ReadLine {
   return l;
 }
 
+/** "3*x + 12 +", "x =", "2*(x + 1" — clearly mid-write, so not something to mark wrong. */
+function looksUnfinished(l: ReadLine): boolean {
+  if (l.kind !== "equation" && l.kind !== "expression" && l.kind !== "other") return false;
+  const t = l.text.trim();
+  if (!t) return true;
+  if (/[-+*/^=(]$/.test(t)) return true;
+  let depth = 0;
+  for (const ch of t) depth += ch === "(" ? 1 : ch === ")" ? -1 : 0;
+  return depth > 0;
+}
+
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as CheckRequest | null;
   if (wantsMock(request)) return Response.json({ ...checkError, pageId: body?.pageId ?? checkError.pageId });
@@ -61,6 +72,9 @@ export async function POST(request: Request) {
 
   const verdicts = verifyLines(read);
   const lines: CheckedLine[] = read.map((line, i) => {
+    if (looksUnfinished(line)) {
+      return { ...line, box: lineBoxes.find((b) => b.index === line.index)?.box ?? NO_BOX, verdict: "unclear", verifiedBy: "ai", note: "This line looks unfinished.", misconception: undefined };
+    }
     const math = verdicts[i];
     const useMath = math && math.verdict !== "unclear";
     return {
