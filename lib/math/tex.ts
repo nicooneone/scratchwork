@@ -27,8 +27,9 @@ export function asciiToTex(expr: string): string {
     const tex = math.parse(normalize(src)).toTex({ implicit: "hide", parenthesis: "keep" });
     return tex
       .replace(/~/g, "") // mathjs spacing for implicit products: 6~x -> 6x
-      .replace(/\\cdot(?!\s*[\d.])/g, "\\,") // x·(…) -> x(…), but keep 2·3
+      .replace(/\\cdot(?!\s*\{?\s*[\d.])/g, "\\,") // x·(…) -> x(…), but keep 2·3 and 5·2^7 (a number follows)
       .replace(/\{\s+/g, "{")
+      .replace(/(^|[^a-zA-Z\\])([fgh])\\,\\left\(\s*([a-z])\s*\\right\)/g, "$1$2($3)")
       .replace(/\\log\\left\(/g, "\\ln\\left(");
   } catch {
     return src
@@ -83,8 +84,10 @@ function autoSegments(text: string): Segment[] {
       else out.push({ kind: "text", text: tok });
       continue;
     }
-    if (mathy(tok) || /^d\/dx/i.test(tok)) run.push(tok);
-    else {
+    if (mathy(tok) || /^d\/dx/i.test(tok)) {
+      run.push(tok);
+      if (/[:;]$/.test(tok)) flush(); // "Solve for x: …" — the colon ends the math
+    } else {
       // whitespace captured at the end of a run belongs to the text that follows
       const tailSpace = run.length && /^\s+$/.test(run[run.length - 1]) ? run.pop()! : "";
       flush();
@@ -96,9 +99,28 @@ function autoSegments(text: string): Segment[] {
   return merge(out);
 }
 
+/**
+ * Undo JSON eating LaTeX backslashes. When Gemini writes "\times" in a JSON string without doubling
+ * the backslash, JSON.parse turns "\t" into a TAB, so "\times" arrives as TAB + "imes" (same for
+ * \frac -> form feed, \beta -> backspace, \rho/\rightarrow -> CR, \neq/\nabla -> newline).
+ * Those control characters never belong in a question, so put the backslash back.
+ */
+export function repairLatexEscapes(text: string): string {
+  if (!text) return text;
+  let s = text
+    .replace(/\u0009(?=[a-zA-Z])/g, "\\t")
+    .replace(/\u000c(?=[a-zA-Z])/g, "\\f")
+    .replace(/\u0008(?=[a-zA-Z])/g, "\\b")
+    .replace(/\r(?=[a-zA-Z])/g, "\\r");
+  // A newline is only a broken "\n…" command inside $…$ math; elsewhere it may be a real line break.
+  s = s.replace(/\$[^$]*\$/g, (m) => m.replace(/\n(?=[a-zA-Z])/g, "\\n"));
+  return s;
+}
+
 /** Split "Evaluate $\\int x\\,dx$ now" into text and math. No $ at all -> auto-detect math in ASCII. */
-export function toSegments(text: string): Segment[] {
-  if (!text) return [];
+export function toSegments(raw: string): Segment[] {
+  if (!raw) return [];
+  const text = repairLatexEscapes(raw);
   if (!/\$[^$]+\$|\\\(.+?\\\)/.test(text)) return autoSegments(text);
   const out: Segment[] = [];
   const re = /\$([^$]+)\$|\\\((.+?)\\\)/g;
@@ -123,6 +145,7 @@ function merge(segs: Segment[]): Segment[] {
 }
 
 /** An answer key (ASCII) as LaTeX, for "Show answers". */
-export function answerTex(answer: string): string {
+export function answerTex(raw: string): string {
+  const answer = repairLatexEscapes(raw);
   return /\$/.test(answer) ? answer.replace(/\$/g, "") : asciiToTex(answer);
 }

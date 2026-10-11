@@ -59,7 +59,9 @@ export function Tour({ steps, onFinish, onSkip }: { steps: TourStep[]; onFinish(
     return () => ro.disconnect();
   }, []);
 
-  useEffect(() => nextRef.current?.focus(), [i]);
+  useEffect(() => {
+    nextRef.current?.focus(); // braces: never return a value from an effect
+  }, [i]);
 
   const next = useCallback(() => (last ? onFinish() : setI((n) => n + 1)), [last, onFinish]);
   const back = useCallback(() => setI((n) => Math.max(0, n - 1)), []);

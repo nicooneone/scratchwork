@@ -101,7 +101,7 @@ Rules:
 - Ground your answer in their notes. Every time you use something from a page, cite it right there as [[page-id]] using the exact id. Never invent an id.
 - For questions about what they struggle with, use the struggles log and cite the pages it came from.
 - If their notes don't cover the question, say so briefly, then answer from general knowledge without citations.
-- Plain text only, no Markdown headings. Math in plain readable form (x^2, sin(x)).
+- Plain text only, no Markdown headings. Write every piece of math in LaTeX between $ signs so it is typeset, e.g. $x^2$, $\\sin(x)$, $5 \\cdot 2^7$, $\\frac{3}{4}$, $\\sqrt{x}$. Never write math as ASCII (x^2, sqrt(x), 5*2^7).
 
 Return "answer" (with the [[page-id]] citations inline) and "citations" (the list of page ids you cited).`;
 

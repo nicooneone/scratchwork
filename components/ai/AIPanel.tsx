@@ -113,7 +113,11 @@ function AskTab({
   const [thinking, setThinking] = useState(false);
   const end = useRef<HTMLDivElement>(null);
 
-  useEffect(() => end.current?.scrollIntoView({ behavior: "smooth" }), [msgs, thinking, busy]);
+  useEffect(() => {
+    // Braces matter: scrollIntoView returns a Promise in current browsers, and an effect that
+    // returns anything but a cleanup function crashes React ("destroy is not a function").
+    end.current?.scrollIntoView({ behavior: "smooth" });
+  }, [msgs, thinking, busy]);
 
   const send = async (question: string) => {
     if (!question.trim() || thinking) return;
@@ -214,7 +218,7 @@ function CitedText({ text, labelOf, onNavigate }: { text: string; labelOf(id: st
     <span className="whitespace-pre-wrap">
       {parts.map((part, i) => {
         const m = part.match(/^\[\[([^\]]+)\]\]$/);
-        if (!m) return part;
+        if (!m) return part ? <MathText key={i} text={part} /> : null; // real math notation, not x^2
         const label = labelOf(m[1]);
         return label ? (
           <button key={i} onClick={() => onNavigate(m[1])} className="mx-0.5 rounded bg-desk px-1.5 py-0.5 align-baseline text-xs font-medium text-ink">

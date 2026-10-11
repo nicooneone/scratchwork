@@ -7,6 +7,7 @@ import { aiUnavailable, badRequest, kebab, wantsMock } from "@/lib/ai/respond";
 import { verifyQuizAnswer, type QuizCheckInput } from "@/lib/ai/quizCheck";
 import { uid } from "@/lib/ids";
 import type { QuizQuestion, QuizRequest } from "@/lib/types";
+import { repairLatexEscapes } from "@/lib/math/tex";
 
 export const maxDuration = 30;
 
@@ -30,23 +31,60 @@ export async function POST(request: Request) {
     .map((m) => `- ${m.topic}: pKnown ${m.pKnown.toFixed(2)} after ${m.attempts} attempts`)
     .join("\n") || "No mastery data yet: pick the topics that look hardest in the notes.";
 
-  try {
-    const { data } = await generateJson<{ questions: (Omit<QuizQuestion, "id"> & QuizCheckInput)[] }>({
+  type Raw = Omit<QuizQuestion, "id"> & QuizCheckInput;
+  const known = new Set(body.pages.map((p) => p.id));
+  const started = Date.now();
+
+  /** Ask Gemini for `n` questions; keep only ones whose answer key isn't provably wrong. */
+  const ask = async (n: number, exclude: string[], timeoutMs: number): Promise<Raw[]> => {
+    const settings = { ...body.settings, count: n } as QuizRequest["settings"];
+    const { data } = await generateJson<{ questions: Raw[] }>({
       system: QUIZ_SYSTEM,
-      parts: [{ text: `NOTEBOOK PAGES:\n${notebook}\n\nMASTERY (weakest first):\n${mastery}\n\nQUIZ SETTINGS:\n${quizSettingsText(body.settings, body.exclude)}` }],
+      parts: [{ text: `NOTEBOOK PAGES:\n${notebook}\n\nMASTERY (weakest first):\n${mastery}\n\nQUIZ SETTINGS:\n${quizSettingsText(settings, exclude)}` }],
       schema: QUIZ_SCHEMA,
       thinking: "medium",
       temperature: 0.7,
-      timeoutMs: 25_000,
+      timeoutMs,
     });
-    const known = new Set(body.pages.map((p) => p.id));
-    // Drop any question whose answer key is provably wrong.
-    const questions: QuizQuestion[] = (data.questions ?? [])
+    return (data.questions ?? [])
+      .map((q) => ({ ...q, prompt: repairLatexEscapes(q.prompt ?? ""), hint: q.hint ? repairLatexEscapes(q.hint) : q.hint }))
       .filter((q) => {
         const ok = verifyQuizAnswer(q);
         if (ok === false) console.warn("[quiz] dropped wrong answer key:", q.prompt, "→", q.answer);
-        return ok !== false;
-      })
+        return ok !== false && !!q.prompt && !!q.answer;
+      });
+  };
+
+  /** Same math = same question, even if the wording differs ("Evaluate …" vs "Find …"). */
+  const sameKey = (q: Raw) => {
+    const math = [...q.prompt.matchAll(/\$([^$]+)\$/g)].map((m) => m[1].replace(/\s+/g, "")).join("|");
+    return math || q.prompt.toLowerCase().replace(/[^a-z0-9]/g, "");
+  };
+  const addUnique = (into: Raw[], more: Raw[]) => {
+    const seen = new Set(into.map(sameKey));
+    for (const q of more) {
+      const key = sameKey(q);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      into.push(q);
+    }
+  };
+
+  try {
+    const picked: Raw[] = [];
+    addUnique(picked, await ask(count, body.exclude ?? [], 25_000));
+    // Dropped wrong keys or duplicates left the quiz short: ask once more for the missing ones,
+    // if there's time left in this request (Vercel stops it at 30 s).
+    const missing = count - picked.length;
+    const left = 27_000 - (Date.now() - started);
+    if (missing > 0 && left > 6_000) {
+      try {
+        addUnique(picked, await ask(missing + 1, [...(body.exclude ?? []), ...picked.map((q) => q.prompt)], left - 1_000));
+      } catch {
+        /* keep what we have */
+      }
+    }
+    const questions: QuizQuestion[] = picked
       .slice(0, count)
       .map(({ prompt, topic, answer, answerKind, sourcePageIds, difficulty, style, hint }) => ({
         id: uid(),
