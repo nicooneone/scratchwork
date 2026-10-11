@@ -10,6 +10,7 @@ import PageCanvas, { type PageCanvasHandle } from "@/components/canvas/PageCanva
 import { addPage, db, getNotebook, getPages, logStruggle, savePage } from "@/lib/db";
 import { renderToPng } from "@/lib/ink/export";
 import { currentBlock } from "@/lib/ink/blocks";
+import { visibleInk } from "@/lib/ink/crossout";
 import { segmentLines } from "@/lib/ink/segment";
 import { INK_COLORS, TOOL_PRESETS } from "@/lib/ink/tools";
 import { unlockAudio } from "@/lib/voice";
@@ -156,7 +157,9 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
       }
       if (!force && checkedVersion.current === version.current) return;
       // Only the problem being worked on (the block with the newest stroke), numbered L1..Ln.
-      let lines: LineBox[] = currentBlock(segmentLines(p.strokes), p.strokes);
+      // Crossed-out writing counts as deleted: only visible ink is segmented and read.
+      const ink = visibleInk(p.strokes).visible;
+      let lines: LineBox[] = currentBlock(segmentLines(ink), ink);
       if (lines.length === 0) {
         setResult(null);
         return;
@@ -164,7 +167,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
       // Still writing? Then the newest line is half-done: check only the finished lines above it.
       const writing = !force && !finished && performance.now() - lastStrokeAt.current < IDLE_MS - 50;
       if (writing) {
-        const newest = newestInkId(p.strokes);
+        const newest = newestInkId(ink);
         if (!newest || !lines[lines.length - 1].strokeIds.includes(newest)) return; // editing mid-problem: wait for the pause
         lines = lines.slice(0, -1);
         if (lines.length === 0) return;
@@ -291,7 +294,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
       // The pen just moved down to a new line: the line above is finished, so check it now.
       const added = strokes.length > p.strokes.length ? strokes[strokes.length - 1] : null;
       if (!added || added.tool === "highlighter" || added.tool === "lasso" || added.tool.startsWith("eraser")) return;
-      const line = segmentLines(strokes).find((l) => l.strokeIds.includes(added.id));
+      const line = segmentLines(visibleInk(strokes).visible).find((l) => l.strokeIds.includes(added.id));
       if (!line) return;
       const prev = lastInkLine.current;
       lastInkLine.current = { id: added.id, bottom: line.box.y + line.box.h };
@@ -349,7 +352,8 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
   // waiting for the next check.
   const errBox = checkedBoxes.find((b) => b.index === result?.firstErrorIndex);
   const liveIds = new Set(page.strokes.map((s) => s.id));
-  const errErased = !!errBox && errBox.strokeIds.some((id) => !liveIds.has(id));
+  const crossedIds = errBox ? visibleInk(page.strokes).crossed : new Set<string>();
+  const errErased = !!errBox && errBox.strokeIds.some((id) => !liveIds.has(id) || crossedIds.has(id));
   const shown: CheckResult | null = result && errErased ? { ...result, firstErrorIndex: null, lines: result.lines.filter((l) => l.index !== result.firstErrorIndex) } : result;
   const errLine = shown?.lines.find((l) => l.index === shown.firstErrorIndex);
 
@@ -407,7 +411,8 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
             const rect = canvas.getBoundingClientRect();
             if (e.clientX < rect.left || e.clientX > rect.right) return;
             const y = ((e.clientY - rect.top) / rect.height) * PAGE_H;
-            const lines = currentBlock(segmentLines(p.strokes), p.strokes);
+            const ink = visibleInk(p.strokes).visible;
+            const lines = currentBlock(segmentLines(ink), ink);
             const last = lines[lines.length - 1];
             // Clearly below the line (not a low character or a subscript inside its bottom edge).
             if (last && y > last.box.y + last.box.h + Math.max(8, last.box.h * 0.2)) runCheck(false, true);

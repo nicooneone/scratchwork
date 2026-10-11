@@ -72,6 +72,10 @@ export async function POST(request: Request) {
 
   const verdicts = verifyLines(read);
   const lines: CheckedLine[] = read.map((line, i) => {
+    if (!line.text.trim()) {
+      // The whole line was crossed out: nothing to judge, and no "?" for an unreadable line.
+      return { ...line, box: lineBoxes.find((b) => b.index === line.index)?.box ?? NO_BOX, verdict: "unclear", verifiedBy: "ai", readConfidence: 1, note: "Crossed out.", misconception: undefined };
+    }
     if (looksUnfinished(line)) {
       return { ...line, box: lineBoxes.find((b) => b.index === line.index)?.box ?? NO_BOX, verdict: "unclear", verifiedBy: "ai", note: "This line looks unfinished.", misconception: undefined };
     }

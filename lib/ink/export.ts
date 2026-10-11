@@ -2,6 +2,7 @@
 // Ink only (no template, no highlighter) on white, with precise erases applied, plus gray
 // "L1:", "L2:" … labels in a left margin so Gemini can say which line is which.
 import type { Box, LineBox, Stroke } from "../types";
+import { visibleInk } from "./crossout";
 import { drawStroke } from "./render";
 
 const MARGIN = 60; // page units added on the left for line labels
@@ -29,7 +30,8 @@ export async function renderToPng(
   ctx.setTransform(scale, 0, 0, scale, -r.x * scale, -r.y * scale);
 
   // 1. Replay ink in order on a transparent canvas, so precise erases remove what's under them.
-  for (const s of strokes) {
+  //    Crossed-out writing (and the strike or scribble through it) is treated as deleted.
+  for (const s of visibleInk(strokes).visible) {
     if (s.tool === "highlighter") continue;
     drawStroke(ctx, s, { plainPencil: true });
   }

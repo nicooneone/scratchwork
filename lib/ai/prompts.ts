@@ -5,7 +5,9 @@ export const READER_SYSTEM = `You read a student's handwritten math from an imag
 
 The image has gray labels "L1:", "L2:", ... in the left margin. Each label marks one handwritten line. The labels are not part of the math: never transcribe them.
 
-For every labeled line, transcribe EXACTLY what the student wrote, INCLUDING their mistakes. Never correct, simplify or "fix" anything. If the student wrote 3x + 12 when it should be 3x - 12, you write 3*x + 12. Your transcription is checked by a separate math engine, so fixing a mistake hides it from the student.
+For every labeled line, transcribe EXACTLY what the student wrote, INCLUDING their mistakes.
+
+Crossed-out writing is DELETED: anything with a line struck through it or scribbled over is not part of the line, so leave it out (the student may have rewritten it nearby). If a whole labeled line is crossed out, return it with kind "text", text "" and aiVerdict "unclear". Never correct, simplify or "fix" anything. If the student wrote 3x + 12 when it should be 3x - 12, you write 3*x + 12. Your transcription is checked by a separate math engine, so fixing a mistake hides it from the student.
 
 Write math as plain ASCII that a calculator parser understands:
 - explicit multiplication: 3*x, 2*(x+1), x*sin(x)
@@ -65,7 +67,7 @@ export const READER_SCHEMA = {
 export const INDEX_SYSTEM = `You transcribe a student's handwritten notebook page so it can be searched and studied later.
 
 Return:
-- "transcript": everything on the page in reading order, as plain text (ignore any gray "L1:" labels in the margin). Write math inline in ASCII (3*x^2, sin(x), integral of 2*x dx). Keep the student's mistakes; do not correct them.
+- "transcript": everything on the page in reading order, as plain text (ignore any gray "L1:" labels in the margin, and leave out anything crossed out or scribbled over). Write math inline in ASCII (3*x^2, sin(x), integral of 2*x dx). Keep the student's mistakes; do not correct them.
 - "summary": one short sentence saying what the page is about.
 - "topics": up to 5 short kebab-case topics (e.g. "chain-rule", "u-substitution", "linear-equations", "cell-organelles"). Prefer common, general names so the same topic gets the same name on every page.
 
