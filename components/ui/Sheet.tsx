@@ -12,9 +12,9 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-scrim p-4 sm:items-center" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-label={title} className="w-full max-w-md rounded-2xl bg-paper p-5 shadow-2xl animate-[sheet-in_.18s_ease-out]">
-        <h2 className="mb-4 text-lg font-semibold">{title}</h2>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-scrim p-4 backdrop-blur-[3px] animate-[fade-in_.2s_ease-out] sm:items-center" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div role="dialog" aria-label={title} className="w-full max-w-md rounded-[28px] bg-paper p-6 shadow-[inset_0_1px_0_var(--glass-hi),0_0_0_1px_var(--glass-edge),var(--shadow-lg)] animate-[rise-in_.28s_cubic-bezier(.2,.9,.25,1.1)]">
+        <h2 className="mb-5 text-xl font-semibold tracking-tight">{title}</h2>
         {children}
       </div>
     </div>

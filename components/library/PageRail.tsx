@@ -23,33 +23,33 @@ export function PageRail({
   const current = pages.find((p) => p.id === currentId);
 
   return (
-    <aside data-tour="pages" className="chrome relative flex w-[132px] shrink-0 flex-col border-r border-rule bg-desk/70">
+    <aside data-tour="pages" className="chrome relative flex w-[132px] shrink-0 flex-col border-r border-[var(--glass-edge)] bg-[var(--glass)] backdrop-blur-xl">
       <div className="scroll-y flex-1 space-y-3 px-3 py-3">
         {pages.map((p, i) => (
           <button key={p.id} onClick={() => onSelect(p.id)} className="block w-full text-center" aria-current={p.id === currentId}>
             {/* Selected page: a soft tinted frame, so the thumbnails never outshout the page itself. */}
-            <div className={`rounded-[6px] p-[3px] transition-colors ${p.id === currentId ? "bg-ink/15" : "bg-transparent"}`}>
+            <div className={`press rounded-[9px] p-[3px] transition-all duration-200 ${p.id === currentId ? "bg-ink/[.1] shadow-[0_0_0_2px_var(--ink)]" : "bg-transparent hover:bg-ink/[.05]"}`}>
               <PageThumb page={p} />
             </div>
             <span className={`mt-1 inline-flex items-center gap-1 text-xs tabular-nums ${p.id === currentId ? "font-semibold text-ink" : "text-ink-soft"}`}>
               {i + 1}
-              {p.quiz?.length ? <span className="rounded bg-mark/10 px-1 text-[10px] font-semibold text-mark">QUIZ</span> : null}
+              {p.quiz?.length ? <span className="rounded-full bg-mark/10 px-1.5 text-[10px] font-semibold text-mark">Quiz</span> : null}
               {p.brain && p.brain.indexedAt >= p.updatedAt ? <span className="h-1.5 w-1.5 rounded-full bg-ok" title="Indexed for Ask" /> : null}
             </span>
           </button>
         ))}
       </div>
-      <div className="flex gap-1 border-t border-rule p-2">
-        <button onClick={() => setPicker(picker === "add" ? null : "add")} className="flex h-10 flex-1 items-center justify-center gap-1 rounded-lg bg-paper text-sm font-medium shadow-sm">
+      <div className="flex gap-1.5 p-2">
+        <button onClick={() => setPicker(picker === "add" ? null : "add")} className="press flex h-10 flex-1 items-center justify-center gap-1 rounded-xl bg-surface text-sm font-medium shadow-[var(--shadow-sm)]">
           <Icon.plus size={18} /> Page
         </button>
-        <button onClick={() => setPicker(picker === "paper" ? null : "paper")} aria-label="Paper for this page" className="flex h-10 w-10 items-center justify-center rounded-lg bg-paper shadow-sm">
+        <button onClick={() => setPicker(picker === "paper" ? null : "paper")} aria-label="Paper for this page" className="press flex h-10 w-10 items-center justify-center rounded-xl bg-surface shadow-[var(--shadow-sm)]">
           <Icon.pages size={18} />
         </button>
       </div>
 
       {picker && (
-        <div className="absolute bottom-14 left-2 z-30 w-[260px] rounded-xl bg-paper p-3 shadow-xl ring-1 ring-rule animate-[sheet-in_.15s_ease-out]">
+        <div className="glass glass-lg absolute bottom-14 left-2 z-30 w-[260px] origin-bottom-left rounded-2xl p-3 animate-[rise-in_.22s_cubic-bezier(.2,.9,.25,1.1)]">
           <div className="mb-2 text-xs font-medium text-ink-soft">{picker === "add" ? "New page" : "Paper for this page"}</div>
           <div className="grid grid-cols-3 gap-2">
             {TEMPLATES.map((t) => (

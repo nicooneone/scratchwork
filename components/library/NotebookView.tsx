@@ -429,7 +429,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
   const errLine = shown?.lines.find((l) => l.index === shown.firstErrorIndex);
 
   return (
-    <main className="flex h-[100dvh] flex-col overflow-hidden bg-desk">
+    <main className="flex h-[100dvh] flex-col overflow-hidden">
       <Toolbar
         title={notebook.title}
         toolState={toolState}
@@ -557,12 +557,12 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
 
           {/* status chip */}
           {tool.tutorMode && (checking || checkError) && (
-            <div className={`pointer-events-none absolute left-1/2 ${page.quizMeta ? "top-16" : "top-3"} z-20 -translate-x-1/2 rounded-full bg-paper/95 px-3 py-1.5 text-sm shadow-md ring-1 ring-rule`}>
+            <div className={`pointer-events-none absolute left-1/2 ${page.quizMeta ? "top-16" : "top-3"} z-20 -translate-x-1/2 glass rounded-full px-4 py-1.5 text-sm`}>
               {checking ? <span className="font-hand text-lg">Reading your work…</span> : <span className="text-ink-soft">{checkError}</span>}
             </div>
           )}
           {toast && (
-            <div className={`pointer-events-none absolute left-1/2 ${page.quizMeta ? "top-16" : "top-3"} z-20 -translate-x-1/2 rounded-full bg-ok px-4 py-1.5 font-hand text-xl text-white shadow-md animate-[sheet-in_.2s_ease-out]`}>{toast}</div>
+            <div className={`pointer-events-none absolute left-1/2 ${page.quizMeta ? "top-16" : "top-3"} z-20 -translate-x-1/2 rounded-full bg-ok px-5 py-1.5 font-hand text-xl text-white shadow-[inset_0_1px_0_rgba(255,255,255,.25),0_10px_24px_-8px_var(--ok)] animate-[rise-in_.3s_cubic-bezier(.2,.9,.25,1.2)]`}>{toast}</div>
           )}
 
           {openLine && errLine && tool.tutorMode && (

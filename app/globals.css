@@ -13,6 +13,15 @@
   --surface: #ffffff; /* cards, inputs and chat bubbles that sit on the paper */
   --scrim: rgba(29, 42, 68, 0.3);
   --hl-opacity: 0.35; /* keep in sync with highlighterOpacity() in lib/ink/tools.ts */
+  /* Chrome that floats over the desk: frosted paper with a lit top edge and ink-tinted depth. */
+  --glass: rgba(253, 252, 248, 0.74);
+  --glass-edge: rgba(29, 42, 68, 0.09);
+  --glass-hi: rgba(255, 255, 255, 0.85);
+  --shadow-sm: 0 1px 2px rgba(29, 42, 68, 0.1), 0 0 0 1px rgba(29, 42, 68, 0.05);
+  --shadow-md: 0 1px 2px rgba(29, 42, 68, 0.06), 0 8px 20px -6px rgba(29, 42, 68, 0.18);
+  --shadow-lg: 0 2px 6px rgba(29, 42, 68, 0.06), 0 24px 48px -16px rgba(29, 42, 68, 0.32);
+  --dot: rgba(29, 42, 68, 0.1); /* the desk's graph-paper dots */
+  --track: rgba(29, 42, 68, 0.16);
 }
 
 /* Night notebook: ink-navy desk, a lifted navy page, warm white writing, a brighter red pen. */
@@ -28,6 +37,14 @@
   --surface: #1e2840;
   --scrim: rgba(3, 6, 12, 0.6);
   --hl-opacity: 0.55;
+  --glass: rgba(23, 32, 52, 0.72);
+  --glass-edge: rgba(236, 232, 220, 0.08);
+  --glass-hi: rgba(255, 255, 255, 0.06);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(236, 232, 220, 0.06);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 24px -8px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.3), 0 28px 56px -18px rgba(0, 0, 0, 0.7);
+  --dot: rgba(151, 163, 186, 0.12);
+  --track: rgba(236, 232, 220, 0.18);
 }
 
 @theme inline {
@@ -46,7 +63,8 @@
 
 html,
 body {
-  background: var(--desk);
+  /* Graph-paper dots on the desk: the subject's own texture, quiet enough to disappear. */
+  background: radial-gradient(circle, var(--dot) 1px, transparent 1.3px) 0 0 / 24px 24px, var(--desk);
   color: var(--ink);
   font-family: var(--font-ui), system-ui, -apple-system, sans-serif;
   /* No text selection, callouts or tap highlights anywhere near the ink. */
@@ -143,3 +161,55 @@ html:not([data-theme="dark"]) .theme-icon .bite { transform: translate(9px, -9px
 /* Typeset math (KaTeX) in quiz questions: a touch larger than the text around it, same ink color. */
 .math-text .katex { font-size: 1.08em; color: inherit; }
 .math-text .katex-display { margin: 0.2em 0; }
+
+/* ---- Modern chrome: one set of surfaces and motion used across the app ---- */
+.glass {
+  background: var(--glass);
+  -webkit-backdrop-filter: saturate(1.5) blur(18px);
+  backdrop-filter: saturate(1.5) blur(18px);
+  box-shadow: inset 0 1px 0 var(--glass-hi), 0 0 0 1px var(--glass-edge), var(--shadow-md);
+}
+.glass-lg { box-shadow: inset 0 1px 0 var(--glass-hi), 0 0 0 1px var(--glass-edge), var(--shadow-lg); }
+/* The selected item in a capsule: a raised paper chip, like a key pressed into place. */
+.chip-on { background: var(--surface); box-shadow: var(--shadow-sm); color: var(--ink); }
+/* Every tappable thing answers the finger with a small spring. */
+.press { transition: transform 0.22s cubic-bezier(.2, .9, .25, 1.2), background-color 0.15s, box-shadow 0.15s, opacity 0.15s; }
+.press:active:not(:disabled) { transform: scale(0.94); transition-duration: 0.08s; }
+/* Primary buttons: ink with a lit top edge so they read as solid objects. */
+.btn-ink {
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 1px 2px rgba(29, 42, 68, 0.25), 0 6px 14px -6px rgba(29, 42, 68, 0.5);
+}
+:root[data-theme="dark"] .btn-ink { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 6px 16px -6px rgba(0, 0, 0, 0.6); }
+.ring-focus:focus-visible, .press:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* Library wordmark: the red pen underlines the name once, on arrival. The app's signature move. */
+.wordmark-stroke { stroke-dasharray: 420; stroke-dashoffset: 420; animation: draw-in 0.9s cubic-bezier(.6, 0, .2, 1) 0.25s forwards; --len: 420; }
+
+/* Notebook covers lift and swing open a few degrees under the finger or pointer. */
+.cover-3d { transform-origin: left center; transition: transform 0.35s cubic-bezier(.2, .9, .25, 1.1), box-shadow 0.35s; }
+@media (hover: hover) {
+  .group:hover .cover-3d { transform: perspective(900px) rotateY(-9deg) translateY(-4px); }
+}
+.group:active .cover-3d { transform: perspective(900px) rotateY(-4deg) scale(0.97); transition-duration: 0.12s; }
+
+@keyframes rise-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .wordmark-stroke { animation: none; stroke-dashoffset: 0; }
+  .cover-3d, .press { transition: none; }
+}
+@keyframes fade-in { from { opacity: 0; } }
+
+/* Size slider: a thin ink track with a raised paper thumb. */
+input[type="range"].range { -webkit-appearance: none; appearance: none; height: 28px; background: transparent; }
+input[type="range"].range::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: var(--track); }
+input[type="range"].range::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -9px; border-radius: 50%; background: var(--surface); box-shadow: 0 0 0 1px var(--glass-edge), 0 2px 6px rgba(29, 42, 68, 0.3); }
+input[type="range"].range::-moz-range-track { height: 4px; border-radius: 4px; background: var(--track); }
+input[type="range"].range::-moz-range-thumb { width: 22px; height: 22px; border: 0; border-radius: 50%; background: var(--surface); box-shadow: 0 0 0 1px var(--glass-edge), 0 2px 6px rgba(29, 42, 68, 0.3); }
+:root[data-theme="dark"] .chip-on { background: rgba(236, 232, 220, 0.12); }
+:root[data-theme="dark"] input[type="range"].range::-webkit-slider-thumb { background: var(--ink); }
+:root[data-theme="dark"] input[type="range"].range::-moz-range-thumb { background: var(--ink); }
+/* A cover's paper label stays paper-white at night, like a real sticker on a real notebook. */
+.cover-label { background: #fdfcf8; color: #1d2a44; }
+:root[data-theme="dark"] .cover-3d { box-shadow: 0 0 0 1px rgba(236, 232, 220, 0.1), 0 14px 28px -12px rgba(0, 0, 0, 0.8); }

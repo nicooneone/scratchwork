@@ -82,9 +82,9 @@ export function Toolbar(p: ToolbarProps) {
   const showSize = ts.tool !== "lasso";
 
   return (
-    <div className="chrome z-20 border-b border-rule bg-paper/95 pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(29,42,68,.04)] backdrop-blur">
-      {/* top row */}
-      <div className="flex h-12 items-center gap-1 px-2">
+    <div className="chrome z-20 pt-[env(safe-area-inset-top)]">
+      {/* top row: a frosted bar the desk shows through */}
+      <div className="flex h-12 items-center gap-1 border-b border-[var(--glass-edge)] bg-[var(--glass)] px-2 backdrop-blur-xl">
         <TBtn label="Library" onClick={p.onBack}>
           <Icon.back />
         </TBtn>
@@ -93,7 +93,7 @@ export function Toolbar(p: ToolbarProps) {
             <Icon.pages />
           </TBtn>
         )}
-        <div className="min-w-0 flex-1 truncate px-1 font-hand text-2xl leading-none">{p.title}</div>
+        <div className="min-w-0 flex-1 truncate px-2 font-hand text-[26px] leading-none">{p.title}</div>
         <TBtn label="Undo" onClick={p.onUndo} disabled={!p.history.canUndo}>
           <Icon.undo />
         </TBtn>
@@ -109,7 +109,7 @@ export function Toolbar(p: ToolbarProps) {
         >
           <span className="relative">
             <Icon.tutor />
-            {ts.tutorMode && p.checking && <span className="absolute -right-1 -top-1 h-2 w-2 animate-pulse rounded-full bg-ink-soft" aria-hidden />}
+            {ts.tutorMode && <span className={`absolute -right-1 -top-1 h-2 w-2 rounded-full ring-2 ring-[var(--paper)] ${p.checking ? "animate-pulse bg-ink-soft" : "bg-ok"}`} aria-hidden />}
           </span>
         </TBtn>
         <MoreMenu
@@ -124,30 +124,37 @@ export function Toolbar(p: ToolbarProps) {
         </TBtn>
       </div>
 
-      {/* bottom row: tools, colors, size, favorites */}
-      <div data-tour="tools" className="no-scrollbar flex h-14 items-center gap-1 overflow-x-auto px-2">
+      {/* bottom row: a floating dock with tools, colors, size, favorites */}
+      <div className="flex justify-center px-2 py-1.5">
+      <div data-tour="tools" className="glass no-scrollbar flex h-[58px] max-w-full items-center gap-1 overflow-x-auto rounded-[20px] px-1.5">
+        <div className="flex shrink-0 items-center gap-0.5 rounded-[14px] bg-ink/[.05] p-[3px]">
         {DRAW_TOOLS.map(({ tool, icon }) => (
-          <TBtn key={tool} label={TOOL_PRESETS[tool].label} active={ts.tool === tool} onClick={() => pick(tool)}>
-            {icon({})}
+          <TBtn key={tool} label={TOOL_PRESETS[tool].label} active={ts.tool === tool} onClick={() => pick(tool)} small>
+            <span className="relative flex flex-col items-center">
+              {icon({})}
+              {ts.tool === tool && <span className="absolute -bottom-[7px] h-[5px] w-[5px] rounded-full" style={{ background: ts.color }} />}
+            </span>
           </TBtn>
         ))}
         <TBtn
           label={eraserOn ? `${TOOL_PRESETS[ts.tool].label} (tap to switch)` : "Eraser"}
           active={eraserOn}
           onClick={() => pick(eraserOn ? (ts.tool === "eraser-stroke" ? "eraser-precise" : "eraser-stroke") : "eraser-stroke")}
+          small
         >
           <span className="relative">
             <Icon.eraser />
             {eraserOn && (
-              <span className="absolute -bottom-1.5 -right-2 rounded bg-ink px-1 text-[9px] font-semibold leading-tight text-paper">
-                {ts.tool === "eraser-stroke" ? "STROKE" : "PRECISE"}
+              <span className="absolute -bottom-2 -right-3 rounded-full bg-ink px-1.5 text-[9px] font-semibold leading-[13px] text-paper">
+                {ts.tool === "eraser-stroke" ? "Stroke" : "Precise"}
               </span>
             )}
           </span>
         </TBtn>
-        <TBtn label="Lasso: select a region to ask about" active={ts.tool === "lasso"} onClick={() => pick("lasso")}>
+        <TBtn label="Lasso: select a region to ask about" active={ts.tool === "lasso"} onClick={() => pick("lasso")} small>
           <Icon.lasso />
         </TBtn>
+        </div>
 
         {showColor && (
           <>
@@ -157,8 +164,11 @@ export function Toolbar(p: ToolbarProps) {
             ))}
             <label className="relative flex h-11 w-11 shrink-0 items-center justify-center" aria-label="Custom color">
               <span
-                className={`h-7 w-7 rounded-full ring-offset-2 ring-offset-paper ${!colors.some((c) => c.toLowerCase() === ts.color.toLowerCase()) ? "ring-2 ring-ink" : ""}`}
-                style={{ background: "conic-gradient(#e33, #fc3, #3c6, #39f, #93f, #e33)" }}
+                className="h-[26px] w-[26px] rounded-full transition-transform"
+                style={{
+                  background: "conic-gradient(#e33, #fc3, #3c6, #39f, #93f, #e33)",
+                  boxShadow: !colors.some((c) => c.toLowerCase() === ts.color.toLowerCase()) ? `0 0 0 2.5px var(--surface), 0 0 0 4.5px ${ts.color}` : "inset 0 0 0 1px rgba(0,0,0,.12)",
+                }}
               />
               <input type="color" value={toHex(ts.color)} onChange={(e) => onToolState({ ...ts, color: e.target.value })} className="absolute inset-0 cursor-pointer opacity-0" />
             </label>
@@ -189,7 +199,7 @@ export function Toolbar(p: ToolbarProps) {
                 step={0.5}
                 value={ts.size}
                 onChange={(e) => onToolState({ ...ts, size: Number(e.target.value) })}
-                className="w-28 accent-[var(--ink)]"
+                className="range w-28"
               />
             </div>
           </>
@@ -216,11 +226,12 @@ export function Toolbar(p: ToolbarProps) {
           )}
         </div>
       </div>
+      </div>
     </div>
   );
 }
 
-function TBtn({ label, active, disabled, onClick, children, tour }: { label: string; active?: boolean; disabled?: boolean; onClick(): void; children: ReactNode; tour?: string }) {
+function TBtn({ label, active, disabled, onClick, children, tour, small }: { label: string; active?: boolean; disabled?: boolean; onClick(): void; children: ReactNode; tour?: string; small?: boolean }) {
   return (
     <button
       data-tour={tour}
@@ -229,7 +240,7 @@ function TBtn({ label, active, disabled, onClick, children, tour }: { label: str
       aria-pressed={active}
       disabled={disabled}
       onClick={onClick}
-      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ink transition-colors disabled:opacity-30 ${active ? "bg-ink/10" : "hover:bg-desk"}`}
+      className={`press flex shrink-0 items-center justify-center text-ink disabled:opacity-30 ${small ? "h-[44px] w-[44px] rounded-[11px]" : "h-10 w-10 rounded-xl"} ${active ? (small ? "chip-on" : "bg-ink/[.08]") : "hover:bg-ink/[.05]"}`}
     >
       {children}
     </button>
@@ -238,8 +249,11 @@ function TBtn({ label, active, disabled, onClick, children, tour }: { label: str
 
 function Swatch({ color, active, onClick }: { color: string; active: boolean; onClick(): void }) {
   return (
-    <button aria-label={`Color ${color}`} onClick={onClick} className="flex h-11 w-9 shrink-0 items-center justify-center">
-      <span className={`h-7 w-7 rounded-full ring-offset-2 ring-offset-paper ${active ? "ring-2 ring-ink" : ""}`} style={{ background: color }} />
+    <button aria-label={`Color ${color}`} aria-pressed={active} onClick={onClick} className="press flex h-11 w-9 shrink-0 items-center justify-center">
+      <span
+        className={`h-[26px] w-[26px] rounded-full transition-transform duration-200 ${active ? "scale-90" : ""}`}
+        style={{ background: color, boxShadow: active ? `0 0 0 2.5px var(--surface), 0 0 0 4.5px ${color}` : "inset 0 0 0 1px rgba(0,0,0,.12), inset 0 2px 3px rgba(255,255,255,.18)" }}
+      />
     </button>
   );
 }
@@ -261,7 +275,7 @@ function FavoriteChip({ fav, active, onApply, onRemove }: { fav: Favorite; activ
       onPointerUp={() => clearTimeout(timer.current)}
       onPointerLeave={() => clearTimeout(timer.current)}
       onClick={() => !removed.current && onApply()}
-      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${active ? "bg-desk ring-1 ring-ink" : ""}`}
+      className={`press flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${active ? "chip-on" : "hover:bg-ink/[.05]"}`}
     >
       <svg width="30" height="16" viewBox="0 0 30 16" aria-hidden>
         <path
@@ -302,7 +316,7 @@ function MoreMenu({ drawWithFinger, onDrawWithFinger, onCheck, checking, onTour 
         <Icon.more />
       </TBtn>
       {open && (
-        <div role="menu" className="absolute right-0 top-12 z-40 w-64 rounded-xl bg-paper p-1.5 shadow-xl ring-1 ring-rule animate-[sheet-in_.15s_ease-out]">
+        <div role="menu" className="glass glass-lg absolute right-0 top-12 z-40 w-64 origin-top-right rounded-2xl p-1.5 animate-[rise-in_.2s_cubic-bezier(.2,.9,.25,1.1)]">
           {onCheck && (
             <MenuRow
               icon={<Icon.check size={20} />}
@@ -341,7 +355,7 @@ function MenuRow({ icon, label, on, disabled, onClick }: { icon: ReactNode; labe
       aria-checked={isSwitch ? on : undefined}
       disabled={disabled}
       onClick={(e) => onClick(e.currentTarget)}
-      className="flex h-11 w-full items-center gap-3 rounded-lg px-2.5 text-left text-[15px] text-ink transition-colors hover:bg-desk disabled:opacity-50"
+      className="flex h-11 w-full items-center gap-3 rounded-xl px-2.5 text-left text-[15px] text-ink transition-colors hover:bg-ink/[.06] disabled:opacity-50"
     >
       <span className="flex w-6 justify-center text-ink-soft">{icon}</span>
       <span className="flex-1">{label}</span>
@@ -354,7 +368,7 @@ function MenuRow({ icon, label, on, disabled, onClick }: { icon: ReactNode; labe
   );
 }
 
-const Divider = () => <span className="mx-1 h-7 w-px shrink-0 bg-rule" />;
+const Divider = () => <span className="mx-1.5 h-6 w-px shrink-0 bg-ink/10" />;
 
 /** <input type="color"> only accepts #rrggbb. */
 function toHex(c: string): string {

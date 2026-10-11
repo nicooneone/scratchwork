@@ -42,20 +42,18 @@ export default function Library() {
 
   return (
     <main className="chrome mx-auto min-h-[100dvh] max-w-6xl px-5 pb-16 pt-[max(env(safe-area-inset-top),24px)] sm:px-8">
-      <header className="flex items-end justify-between gap-4 py-6">
+      <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-5 pb-10 pt-8">
         <div>
-          <h1 className="font-hand text-5xl leading-none sm:text-6xl">
-            Red<span className="text-mark">Line</span>
-          </h1>
-          <p className="mt-2 text-ink-soft">The notebook that checks your thinking, not just your answer.</p>
+          <Wordmark />
+          <p className="mt-6 max-w-md text-[15px] text-ink-soft">The notebook that checks your thinking, not just your answer.</p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button onClick={() => setTouring(true)} className="h-11 rounded-full px-4 text-sm font-medium text-ink-soft hover:bg-desk">
+        <div className="glass flex shrink-0 items-center gap-1 rounded-full p-1.5">
+          <button onClick={() => setTouring(true)} className="press h-10 rounded-full px-4 text-sm font-medium text-ink-soft hover:text-ink">
             Take the tour
           </button>
-          <ThemeToggle />
-          <button data-tour="new-notebook" onClick={() => setCreating(true)} className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-ink px-5 font-medium text-paper shadow-md active:scale-95">
-            <Icon.plus size={20} /> New notebook
+          <ThemeToggle className="press !h-10 !w-10 !rounded-full" />
+          <button data-tour="new-notebook" onClick={() => setCreating(true)} className="press btn-ink flex h-10 shrink-0 items-center gap-2 rounded-full pl-3.5 pr-5 text-[15px] font-medium">
+            <Icon.plus size={18} /> New notebook
           </button>
         </div>
       </header>
@@ -63,11 +61,19 @@ export default function Library() {
       {notebooks === null ? null : notebooks.length === 0 ? (
         <EmptyState onCreate={() => setCreating(true)} />
       ) : (
-        <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {notebooks.map((nb) => (
-            <NotebookCover key={nb.id} notebook={nb} pages={counts[nb.id] ?? 0} onOpen={() => router.push(`/notebook/${nb.id}`)} onActions={() => setActing(nb)} />
-          ))}
-        </div>
+        <>
+          <div className="mb-4 flex items-baseline justify-between px-1">
+            <h2 className="text-[15px] font-semibold">Your notebooks</h2>
+          </div>
+          <div className="grid grid-cols-2 gap-x-7 gap-y-9 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {notebooks.map((nb, i) => (
+              <div key={nb.id} className="animate-[rise-in_.45s_cubic-bezier(.2,.8,.2,1)_both]" style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}>
+                <NotebookCover notebook={nb} pages={counts[nb.id] ?? 0} onOpen={() => router.push(`/notebook/${nb.id}`)} onActions={() => setActing(nb)} />
+              </div>
+            ))}
+            <NewTile onClick={() => setCreating(true)} />
+          </div>
+        </>
       )}
 
       <NewNotebookSheet
@@ -99,13 +105,46 @@ export default function Library() {
   );
 }
 
+/** "RedLine" in the student's hand, underlined once by the tutor's red pen. */
+function Wordmark() {
+  return (
+    <h1 className="relative inline-block font-hand text-[64px] leading-[0.9] tracking-tight sm:text-[76px]">
+      RedLine
+      <svg className="pointer-events-none absolute -bottom-3 left-[-2%] h-5 w-[104%] overflow-visible" viewBox="0 0 300 20" preserveAspectRatio="none" aria-hidden>
+        <path className="wordmark-stroke" d="M4 12 C 60 6, 140 15, 210 9 S 280 7, 296 4" fill="none" stroke="var(--mark)" strokeWidth="5" strokeLinecap="round" />
+      </svg>
+    </h1>
+  );
+}
+
+/** The last tile in the grid: a blank page waiting to become a notebook. */
+function NewTile({ onClick }: { onClick(): void }) {
+  return (
+    <button onClick={onClick} className="press group flex flex-col gap-2 text-left">
+      <div className="flex aspect-[1000/1414] w-full flex-col items-center justify-center gap-2 rounded-r-xl rounded-l-sm border-2 border-dashed border-ink/15 text-ink-soft transition-colors group-hover:border-ink/30 group-hover:text-ink">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-surface shadow-[var(--shadow-sm)]">
+          <Icon.plus size={22} />
+        </span>
+        <span className="text-sm font-medium">New notebook</span>
+      </div>
+    </button>
+  );
+}
+
 function EmptyState({ onCreate }: { onCreate(): void }) {
   return (
-    <div className="mx-auto mt-10 flex max-w-sm flex-col items-center text-center">
-      <div className="mb-5 aspect-[1000/1414] w-40 rounded-sm bg-paper shadow-md" style={templateStyle("grid")} />
-      <p className="font-hand text-2xl">No notebooks yet</p>
-      <p className="mt-1 text-ink-soft">Make one, write some math with the Pencil, and pause. RedLine checks each line.</p>
-      <button onClick={onCreate} className="mt-5 h-11 rounded-full bg-ink px-6 font-medium text-paper">
+    <div className="mx-auto mt-6 flex max-w-sm flex-col items-center text-center">
+      <div className="relative mb-7 w-44">
+        <div className="absolute inset-0 translate-x-3 translate-y-2 rotate-6 rounded-sm bg-paper shadow-[var(--shadow-md)]" />
+        <div className="relative aspect-[1000/1414] w-full -rotate-2 rounded-sm bg-paper shadow-[var(--shadow-lg)]" style={templateStyle("grid")}>
+          <svg viewBox="0 0 100 141" className="absolute inset-0 h-full w-full" aria-hidden>
+            <path d="M18 42 C 34 40, 52 43, 76 41" fill="none" stroke="var(--mark)" strokeWidth="1.6" strokeLinecap="round" className="draw-in" style={{ ["--len" as string]: 70 }} />
+          </svg>
+        </div>
+      </div>
+      <p className="text-xl font-semibold">Start your first notebook</p>
+      <p className="mt-1.5 text-ink-soft">Write math with the Pencil and pause. RedLine checks each line and underlines the first one that goes wrong.</p>
+      <button onClick={onCreate} className="press btn-ink mt-6 h-12 rounded-full px-7 font-medium">
         Create a notebook
       </button>
     </div>
@@ -136,7 +175,7 @@ function NewNotebookSheet({ open, onClose, onCreate }: { open: boolean; onClose(
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Calc 1"
-          className="h-12 rounded-lg border border-rule bg-surface px-3 text-lg outline-none focus:border-ink"
+          className="h-12 rounded-xl border border-rule bg-surface px-4 text-lg outline-none transition-shadow focus:border-ink/40 focus:shadow-[0_0_0_4px_var(--glass-edge)]"
         />
         <fieldset>
           <legend className="mb-2 text-sm text-ink-soft">Cover</legend>
@@ -147,7 +186,7 @@ function NewNotebookSheet({ open, onClose, onCreate }: { open: boolean; onClose(
                 key={c}
                 aria-label={`Cover ${c}`}
                 onClick={() => setCover(c)}
-                className={`h-11 w-11 rounded-full ring-offset-2 ring-offset-paper ${cover === c ? "ring-2 ring-ink" : ""}`}
+                className={`press h-11 w-11 rounded-full shadow-[inset_0_1px_0_rgba(255,255,255,.2),var(--shadow-sm)] ring-offset-[3px] ring-offset-paper ${cover === c ? "ring-2 ring-ink" : ""}`}
                 style={{ background: c }}
               />
             ))}
@@ -168,10 +207,10 @@ function NewNotebookSheet({ open, onClose, onCreate }: { open: boolean; onClose(
           </div>
         </fieldset>
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={close} className="h-11 rounded-full px-5 text-ink-soft">
+          <button type="button" onClick={close} className="press h-11 rounded-full px-5 font-medium text-ink-soft hover:text-ink">
             Cancel
           </button>
-          <button type="submit" className="h-11 rounded-full bg-ink px-6 font-medium text-paper">
+          <button type="submit" className="press btn-ink h-11 rounded-full px-6 font-medium">
             Create
           </button>
         </div>
@@ -195,8 +234,8 @@ function ActionsSheet({ notebook, onClose, onChanged }: { notebook: Notebook; on
           onClose();
         }}
       >
-        <input value={title} onChange={(e) => setTitle(e.target.value)} className="h-11 min-w-0 flex-1 rounded-lg border border-rule bg-surface px-3 outline-none focus:border-ink" />
-        <button className="h-11 rounded-full bg-ink px-5 font-medium text-paper">Rename</button>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} className="h-11 min-w-0 flex-1 rounded-xl border border-rule bg-surface px-3 outline-none focus:border-ink/40 focus:shadow-[0_0_0_4px_var(--glass-edge)]" />
+        <button className="press btn-ink h-11 rounded-full px-5 font-medium">Rename</button>
       </form>
       <button
         onClick={async () => {
@@ -205,7 +244,7 @@ function ActionsSheet({ notebook, onClose, onChanged }: { notebook: Notebook; on
           onChanged();
           onClose();
         }}
-        className="mt-4 h-11 w-full rounded-full border border-mark/40 font-medium text-mark"
+        className={`press mt-4 h-11 w-full rounded-full font-medium ${confirming ? "bg-mark text-white" : "bg-mark/10 text-mark"}`}
       >
         {confirming ? "Tap again to delete forever" : "Delete notebook"}
       </button>

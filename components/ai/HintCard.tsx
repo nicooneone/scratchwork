@@ -68,18 +68,18 @@ export function HintCard({
   const current = hints[level - 1];
 
   return (
-    <div className="chrome absolute bottom-4 right-4 z-30 max-h-[calc(100%-2rem)] w-[min(360px,calc(100%-2rem))] overflow-y-auto overscroll-contain rounded-2xl border-2 border-mark/70 bg-paper p-4 shadow-2xl animate-[panel-in_.2s_ease-out]" data-ui="">
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <div>
-          <div className="font-hand text-2xl font-bold leading-none text-mark">Line {line.index}</div>
+    <div className="chrome absolute bottom-4 right-4 z-30 max-h-[calc(100%-2rem)] w-[min(372px,calc(100%-2rem))] overflow-y-auto overscroll-contain rounded-[26px] bg-paper p-5 shadow-[inset_0_1px_0_var(--glass-hi),0_0_0_1px_var(--glass-edge),var(--shadow-lg)] animate-[rise-in_.32s_cubic-bezier(.2,.9,.25,1.1)]" data-ui="">
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="text-[17px] font-semibold tracking-tight">Look at line {line.index}</div>
           <Badge math={line.verifiedBy === "math"} />
         </div>
-        <button aria-label="Close" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full text-ink-soft hover:bg-desk">
+        <button aria-label="Close" onClick={onClose} className="press -mr-1 -mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-ink/[.05] text-ink-soft hover:text-ink">
           <Icon.close size={18} />
         </button>
       </div>
 
-      <div className="min-h-[64px] font-hand text-[22px] leading-snug">
+      <div className="min-h-[64px] font-hand text-[24px] leading-[1.25]">
         {loading && !current ? <Squiggle label="Thinking of a good question…" /> : error ? <p className="text-base text-ink-soft">{error}</p> : current}
       </div>
 
@@ -97,7 +97,7 @@ export function HintCard({
             setSpeaking(true);
             speak(current!).finally(() => setSpeaking(false));
           }}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-ink text-paper disabled:opacity-40"
+          className="press btn-ink flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-40"
         >
           {speaking ? <Icon.stop size={16} /> : <Icon.play size={16} />}
         </button>
@@ -114,7 +114,7 @@ export function HintCard({
                 .catch((e: Error) => setError(e.message))
                 .finally(() => setListening(false));
             }}
-            className={`flex h-11 w-11 items-center justify-center rounded-full border border-rule disabled:opacity-40 ${listening ? "animate-pulse border-mark text-mark" : ""}`}
+            className={`press flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-40 ${listening ? "animate-pulse bg-mark/10 text-mark" : "bg-ink/[.06]"}`}
           >
             <MicIcon />
           </button>
@@ -127,11 +127,11 @@ export function HintCard({
             setLevel(next);
             if (!hints[next - 1]) fetchHint(next);
           }}
-          className="h-11 flex-1 rounded-full border border-rule px-3 text-sm font-medium disabled:opacity-40"
+          className="press h-11 flex-1 rounded-full bg-ink/[.06] px-3 text-sm font-medium hover:bg-ink/[.09] disabled:opacity-40"
         >
           {level === 3 ? "That's all my hints" : "Another hint"}
         </button>
-        <button onClick={onFixed} className="flex h-11 items-center gap-1 rounded-full bg-ok px-4 text-sm font-medium text-white">
+        <button onClick={onFixed} className="press flex h-11 items-center gap-1 rounded-full bg-ok px-4 text-sm font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,.25),0_6px_14px_-6px_var(--ok)]">
           <Icon.check size={16} /> I fixed it
         </button>
       </div>
@@ -139,7 +139,7 @@ export function HintCard({
         <button
           onClick={() => setShowWhy((v) => !v)}
           aria-expanded={showWhy}
-          className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-full border-2 border-ink/80 text-sm font-semibold"
+          className="press mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-full text-sm font-semibold ring-1 ring-ink/15 hover:bg-ink/[.04]"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <path d="M3 3v18h18" />
@@ -150,9 +150,9 @@ export function HintCard({
       )}
       {why && showWhy && <WhyGraph graph={why} />}
 
-      <div className="mt-2 flex gap-1" aria-label={`Hint ${level} of 3`}>
+      <div className="mt-3 flex gap-1.5" aria-label={`Hint ${level} of 3`}>
         {[1, 2, 3].map((n) => (
-          <span key={n} className={`h-1 flex-1 rounded-full ${n <= level ? "bg-mark" : "bg-rule"}`} />
+          <span key={n} className={`h-1 flex-1 rounded-full transition-colors duration-500 ${n <= level ? "bg-mark" : "bg-ink/10"}`} />
         ))}
       </div>
     </div>
@@ -170,10 +170,10 @@ function MicIcon() {
 
 export function Badge({ math }: { math: boolean }) {
   return math ? (
-    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-ok/10 px-2 py-0.5 text-[11px] font-semibold text-ok">
+    <span className="inline-flex items-center gap-1 rounded-full bg-ok/12 px-2 py-0.5 text-[11px] font-semibold text-ok">
       <Icon.check size={12} /> verified by math
     </span>
   ) : (
-    <span className="mt-1 inline-flex items-center rounded-full bg-desk px-2 py-0.5 text-[11px] font-semibold text-ink-soft">AI judgement</span>
+    <span className="inline-flex items-center gap-1 rounded-full bg-ink/[.07] px-2 py-0.5 text-[11px] font-semibold text-ink-soft"><Icon.sparkle size={11} /> AI judgement</span>
   );
 }

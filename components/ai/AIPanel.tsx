@@ -76,18 +76,26 @@ export function AIPanel(props: AIPanelProps) {
   if (!props.open) return null;
 
   return (
-    <aside className="chrome absolute inset-y-0 right-0 z-30 flex w-[min(380px,100%)] flex-col border-l border-rule bg-paper shadow-[-12px_0_32px_-16px_rgba(29,42,68,.35)] animate-[panel-in_.2s_ease-out]">
-      <div className="flex items-center gap-1 border-b border-rule p-2">
-        {(["ask", "quiz", "insights"] as Tab[]).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`h-10 flex-1 rounded-lg text-sm font-medium capitalize ${tab === t ? "bg-ink text-paper" : "text-ink-soft hover:bg-desk"}`}>
-            {t}
-          </button>
-        ))}
-        <button aria-label="Close panel" onClick={props.onClose} className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-soft hover:bg-desk">
+    <aside className="chrome absolute bottom-3 right-3 top-3 z-30 flex w-[min(384px,calc(100%-24px))] flex-col overflow-hidden rounded-[26px] bg-paper shadow-[inset_0_1px_0_var(--glass-hi),0_0_0_1px_var(--glass-edge),var(--shadow-lg)] animate-[panel-in_.3s_cubic-bezier(.2,.9,.25,1.05)]">
+      <div className="flex items-center gap-2 p-2.5">
+        {/* segmented control: the raised chip slides to the chosen tab */}
+        <div className="relative flex flex-1 rounded-[14px] bg-ink/[.06] p-[3px]">
+          <span
+            className="chip-on absolute bottom-[3px] top-[3px] rounded-[11px] transition-[left] duration-300 ease-[cubic-bezier(.2,.9,.25,1.1)]"
+            style={{ width: "calc((100% - 6px) / 3)", left: `calc(3px + ${(["ask", "quiz", "insights"] as Tab[]).indexOf(tab)} * (100% - 6px) / 3)` }}
+            aria-hidden
+          />
+          {(["ask", "quiz", "insights"] as Tab[]).map((t) => (
+            <button key={t} onClick={() => setTab(t)} aria-pressed={tab === t} className={`relative h-9 flex-1 rounded-[11px] text-sm font-medium capitalize transition-colors ${tab === t ? "text-ink" : "text-ink-soft hover:text-ink"}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+        <button aria-label="Close panel" onClick={props.onClose} className="press flex h-9 w-9 items-center justify-center rounded-full bg-ink/[.06] text-ink-soft hover:text-ink">
           <Icon.close size={18} />
         </button>
       </div>
-      {props.mock && <div className="bg-desk px-3 py-1 text-center text-[11px] text-ink-soft">Sample data (mock mode)</div>}
+      {props.mock && <div className="mx-3 mb-1 rounded-full bg-ink/[.05] px-3 py-1 text-center text-[11px] text-ink-soft">Sample data (mock mode)</div>}
 
       {tab === "ask" && <AskTab {...props} all={all} struggles={struggles} ensureIndexed={ensureIndexed} busy={busy} />}
       {tab === "quiz" && <QuizTab {...props} all={all} struggles={struggles} />}
@@ -159,7 +167,7 @@ function AskTab({
             <p className="mt-1 text-sm text-ink-soft">I&apos;ve read every notebook. Answers link to the page they came from.</p>
             <div className="mt-4 flex flex-col gap-2">
               {["What did I struggle with this week?", "Summarize my chain rule notes", "Where did I explain u-substitution?"].map((s) => (
-                <button key={s} onClick={() => send(s)} className="rounded-xl border border-rule bg-surface px-3 py-2 text-left text-sm">
+                <button key={s} onClick={() => send(s)} className="press rounded-2xl bg-surface px-3.5 py-2.5 text-left text-sm shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)]">
                   {s}
                 </button>
               ))}
@@ -168,12 +176,12 @@ function AskTab({
         )}
         {msgs.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-[15px] leading-relaxed ${m.role === "user" ? "rounded-br-sm bg-ink text-paper" : "rounded-bl-sm bg-surface ring-1 ring-rule"}`}>
+            <div className={`max-w-[88%] animate-[rise-in_.25s_ease-out] rounded-[20px] px-3.5 py-2.5 text-[15px] leading-relaxed ${m.role === "user" ? "rounded-br-md bg-ink text-paper" : "rounded-bl-md bg-surface shadow-[var(--shadow-sm)]"}`}>
               <CitedText text={m.text} labelOf={labelOf} onNavigate={onNavigate} />
               {m.citations && m.citations.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {[...new Set(m.citations)].map((id) => (
-                    <button key={id} onClick={() => onNavigate(id)} className="rounded-full bg-desk px-2.5 py-1 text-xs font-medium text-ink">
+                    <button key={id} onClick={() => onNavigate(id)} className="rounded-full bg-ink/[.06] px-2.5 py-1 text-xs font-medium text-ink">
                       {labelOf(id) ?? "Open page"}
                     </button>
                   ))}
@@ -186,7 +194,7 @@ function AskTab({
         <div ref={end} />
       </div>
       {snippet && (
-        <div className="mx-3 mb-2 flex items-center gap-2 rounded-xl bg-desk p-2">
+        <div className="mx-3 mb-2 flex items-center gap-2 rounded-2xl bg-ink/[.05] p-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`data:image/png;base64,${snippet.png}`} alt="Selected region" className="h-12 rounded bg-white object-contain" />
           <span className="flex-1 text-xs text-ink-soft">Asking about this selection</span>
@@ -200,10 +208,10 @@ function AskTab({
           e.preventDefault();
           send(q);
         }}
-        className="flex gap-2 border-t border-rule p-2 pb-[max(env(safe-area-inset-bottom),8px)]"
+        className="flex gap-2 p-2.5"
       >
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={snippet ? "What about this part?" : "Ask about your notes…"} className="h-11 min-w-0 flex-1 rounded-full border border-rule bg-surface px-4 outline-none focus:border-ink" />
-        <button aria-label="Send" disabled={!q.trim() || thinking} className="flex h-11 w-11 items-center justify-center rounded-full bg-ink text-paper disabled:opacity-40">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={snippet ? "What about this part?" : "Ask about your notes…"} className="h-11 min-w-0 flex-1 rounded-full bg-ink/[.06] px-4 outline-none transition-shadow placeholder:text-ink-soft focus:bg-surface focus:shadow-[var(--shadow-sm)]" />
+        <button aria-label="Send" disabled={!q.trim() || thinking} className="press btn-ink flex h-11 w-11 items-center justify-center rounded-full disabled:opacity-30 disabled:shadow-none">
           <Icon.send size={18} />
         </button>
       </form>
@@ -221,7 +229,7 @@ function CitedText({ text, labelOf, onNavigate }: { text: string; labelOf(id: st
         if (!m) return part ? <MathText key={i} text={part} /> : null; // real math notation, not x^2
         const label = labelOf(m[1]);
         return label ? (
-          <button key={i} onClick={() => onNavigate(m[1])} className="mx-0.5 rounded bg-desk px-1.5 py-0.5 align-baseline text-xs font-medium text-ink">
+          <button key={i} onClick={() => onNavigate(m[1])} className="mx-0.5 rounded-md bg-ink/[.06] px-1.5 py-0.5 align-baseline text-xs font-medium text-ink">
             {label}
           </button>
         ) : null;
@@ -283,8 +291,8 @@ function QuizTab({ all, struggles, mock, onMakeQuizPage }: AIPanelProps & { all:
   };
 
   const pagesNeeded = qs ? Math.ceil(qs.length / PER_PAGE) : 0;
-  const chip = (on: boolean) => `rounded-full px-3 py-1.5 text-[13px] font-medium ring-1 transition-colors ${on ? "bg-ink text-paper ring-ink" : "bg-surface text-ink ring-rule"}`;
-  const seg = (on: boolean) => `h-9 flex-1 rounded-lg text-[13px] font-medium ${on ? "bg-ink text-paper" : "text-ink-soft"}`;
+  const chip = (on: boolean) => `press rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${on ? "bg-ink text-paper" : "bg-ink/[.06] text-ink hover:bg-ink/[.1]"}`;
+  const seg = (on: boolean) => `h-9 flex-1 rounded-[10px] text-[13px] font-medium transition-all ${on ? "chip-on" : "text-ink-soft hover:text-ink"}`;
 
   return (
     <div className="scroll-y flex-1 p-3">
@@ -297,7 +305,7 @@ function QuizTab({ all, struggles, mock, onMakeQuizPage }: AIPanelProps & { all:
           <button
             key={p.id}
             onClick={() => setSettings({ ...p.settings, topics: [], styles: [], instructions: "" })}
-            className={`rounded-xl p-2.5 text-left ring-1 ${activePreset === p.id ? "bg-ink text-paper ring-ink" : "bg-surface ring-rule"}`}
+            className={`press rounded-2xl p-3 text-left ${activePreset === p.id ? "btn-ink" : "bg-surface shadow-[var(--shadow-sm)]"}`}
           >
             <div className="text-sm font-semibold">{p.label}</div>
             <div className={`text-[11px] ${activePreset === p.id ? "text-paper/80" : "text-ink-soft"}`}>{p.blurb}</div>
@@ -305,7 +313,7 @@ function QuizTab({ all, struggles, mock, onMakeQuizPage }: AIPanelProps & { all:
         ))}
       </div>
 
-      <button onClick={() => setCustom((c) => !c)} className="mt-3 flex w-full items-center justify-between rounded-xl bg-desk px-3 py-2.5 text-sm font-medium">
+      <button onClick={() => setCustom((c) => !c)} className="press mt-3 flex w-full items-center justify-between rounded-2xl bg-ink/[.05] px-3.5 py-3 text-sm font-medium">
         <span>Customize</span>
         <span className="text-ink-soft">
           {settings.count} · {DIFFICULTIES.find((d) => d.id === settings.difficulty)?.label}
@@ -314,9 +322,9 @@ function QuizTab({ all, struggles, mock, onMakeQuizPage }: AIPanelProps & { all:
       </button>
 
       {custom && (
-        <div className="mt-2 space-y-4 rounded-xl bg-surface p-3 ring-1 ring-rule">
+        <div className="mt-2 space-y-4 rounded-2xl bg-surface p-3.5 shadow-[var(--shadow-sm)]">
           <Field label="Questions">
-            <div className="flex gap-1 rounded-xl bg-desk p-1">
+            <div className="flex gap-1 rounded-[13px] bg-ink/[.06] p-[3px]">
               {COUNTS.map((n) => (
                 <button key={n} onClick={() => setSettings({ count: n })} className={seg(settings.count === n)}>
                   {n}
@@ -325,7 +333,7 @@ function QuizTab({ all, struggles, mock, onMakeQuizPage }: AIPanelProps & { all:
             </div>
           </Field>
           <Field label="Difficulty">
-            <div className="flex gap-1 rounded-xl bg-desk p-1">
+            <div className="flex gap-1 rounded-[13px] bg-ink/[.06] p-[3px]">
               {DIFFICULTIES.map((d) => (
                 <button key={d.id} onClick={() => setSettings({ difficulty: d.id })} className={seg(settings.difficulty === d.id)}>
                   {d.label}
@@ -334,7 +342,7 @@ function QuizTab({ all, struggles, mock, onMakeQuizPage }: AIPanelProps & { all:
             </div>
           </Field>
           <Field label="Focus">
-            <div className="flex gap-1 rounded-xl bg-desk p-1">
+            <div className="flex gap-1 rounded-[13px] bg-ink/[.06] p-[3px]">
               {(
                 [
                   ["weak", "Weak spots"],
@@ -379,7 +387,7 @@ function QuizTab({ all, struggles, mock, onMakeQuizPage }: AIPanelProps & { all:
             </Field>
           )}
           <Field label="Timer">
-            <div className="flex gap-1 rounded-xl bg-desk p-1">
+            <div className="flex gap-1 rounded-[13px] bg-ink/[.06] p-[3px]">
               {TIMERS.map((m) => (
                 <button key={m} onClick={() => setSettings({ timerMin: m })} className={seg(settings.timerMin === m)}>
                   {m ? `${m}m` : "Off"}
@@ -406,7 +414,7 @@ function QuizTab({ all, struggles, mock, onMakeQuizPage }: AIPanelProps & { all:
         </div>
       )}
 
-      <button onClick={make} disabled={busy || (settings.focus === "topics" && settings.topics.length === 0)} className="mt-3 h-11 w-full rounded-full bg-ink font-medium text-paper disabled:opacity-50">
+      <button onClick={make} disabled={busy || (settings.focus === "topics" && settings.topics.length === 0)} className="press btn-ink mt-3 h-12 w-full rounded-full font-medium disabled:opacity-50">
         {qs ? "Make a new quiz" : `Make ${settings.count} question${settings.count === 1 ? "" : "s"}`}
       </button>
       {settings.focus === "topics" && settings.topics.length === 0 && <p className="mt-1 text-center text-xs text-ink-soft">Pick at least one topic.</p>}
@@ -417,22 +425,22 @@ function QuizTab({ all, struggles, mock, onMakeQuizPage }: AIPanelProps & { all:
         <>
           <ol className="mt-4 space-y-2">
             {qs.map((q, i) => (
-              <li key={q.id} className="rounded-xl bg-surface p-3 ring-1 ring-rule">
+              <li key={q.id} className="rounded-2xl bg-surface p-3 shadow-[var(--shadow-sm)]">
                 <div className="flex items-start gap-2">
                   <div className="flex-1 text-[15px]">
                     <span className="font-semibold">{i + 1}.</span> {replacing === q.id ? <span className="text-ink-soft">Finding another…</span> : <MathText text={q.prompt} />}
                   </div>
-                  <button aria-label="Replace this question" title="Replace" disabled={!!replacing} onClick={() => replace(q)} className="h-8 w-8 shrink-0 rounded-full text-ink-soft hover:bg-desk disabled:opacity-40">
+                  <button aria-label="Replace this question" title="Replace" disabled={!!replacing} onClick={() => replace(q)} className="h-8 w-8 shrink-0 rounded-full text-ink-soft hover:bg-ink/[.06] disabled:opacity-40">
                     ↻
                   </button>
-                  <button aria-label="Remove this question" title="Remove" onClick={() => setQs(qs.filter((x) => x.id !== q.id))} className="h-8 w-8 shrink-0 rounded-full text-ink-soft hover:bg-desk">
+                  <button aria-label="Remove this question" title="Remove" onClick={() => setQs(qs.filter((x) => x.id !== q.id))} className="h-8 w-8 shrink-0 rounded-full text-ink-soft hover:bg-ink/[.06]">
                     <Icon.close size={14} className="mx-auto" />
                   </button>
                 </div>
                 <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] uppercase tracking-wide text-ink-soft">
                   <span>{q.topic.replace(/-/g, " ")}</span>
-                  {q.difficulty && <span className="rounded bg-desk px-1.5">{q.difficulty}</span>}
-                  {q.style && <span className="rounded bg-desk px-1.5">{STYLES.find((s) => s.id === q.style)?.label ?? q.style}</span>}
+                  {q.difficulty && <span className="rounded-md bg-ink/[.06] px-1.5">{q.difficulty}</span>}
+                  {q.style && <span className="rounded-md bg-ink/[.06] px-1.5">{STYLES.find((s) => s.id === q.style)?.label ?? q.style}</span>}
                 </div>
               </li>
             ))}
@@ -495,7 +503,7 @@ function InsightsTab({ all, struggles, onNavigate }: { all: { pages: Page[]; not
                       {pct}% · {m.attempts} {m.attempts === 1 ? "line" : "lines"}
                     </span>
                   </div>
-                  <div className="mt-1 h-2.5 overflow-hidden rounded-full bg-desk">
+                  <div className="mt-1 h-2.5 overflow-hidden rounded-full bg-ink/[.06]">
                     <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${pct}%`, background: pct >= 95 ? "var(--ok)" : pct < 50 ? "var(--mark)" : "var(--ink)" }} />
                   </div>
                   {mistake && <div className="mt-1 text-xs text-ink-soft">Most common slip: {mistake.replace(/-/g, " ")}</div>}
