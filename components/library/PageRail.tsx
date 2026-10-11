@@ -27,10 +27,11 @@ export function PageRail({
       <div className="scroll-y flex-1 space-y-3 px-3 py-3">
         {pages.map((p, i) => (
           <button key={p.id} onClick={() => onSelect(p.id)} className="block w-full text-center" aria-current={p.id === currentId}>
-            <div className={`rounded-[5px] p-[3px] ${p.id === currentId ? "bg-ink" : "bg-transparent"}`}>
+            {/* Selected page: a soft tinted frame, so the thumbnails never outshout the page itself. */}
+            <div className={`rounded-[6px] p-[3px] transition-colors ${p.id === currentId ? "bg-ink/15" : "bg-transparent"}`}>
               <PageThumb page={p} />
             </div>
-            <span className="mt-1 inline-flex items-center gap-1 text-xs tabular-nums text-ink-soft">
+            <span className={`mt-1 inline-flex items-center gap-1 text-xs tabular-nums ${p.id === currentId ? "font-semibold text-ink" : "text-ink-soft"}`}>
               {i + 1}
               {p.quiz?.length ? <span className="rounded bg-mark/10 px-1 text-[10px] font-semibold text-mark">QUIZ</span> : null}
               {p.brain && p.brain.indexedAt >= p.updatedAt ? <span className="h-1.5 w-1.5 rounded-full bg-ok" title="Indexed for Ask" /> : null}

@@ -1,11 +1,12 @@
 "use client";
 // Owner: C. Notebook toolbar. Two rows so it fits an iPad in portrait:
-//   top:    back · title · undo/redo · draw-with-finger · Tutor mode · Check · light/dark · AI
+//   top:    back · pages · title · undo/redo · Tutor · ⋯ (check page, draw with finger, dark mode) · AI
 //   bottom: tools · colors (+ custom) · size with live preview · favorites
-import { useRef, useState, type ReactNode } from "react";
+// Active buttons get a light ink tint, not a solid fill, so the page stays the loudest thing on screen.
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { HIGHLIGHTER_COLORS, TOOL_PRESETS, inkPalette, isEraser, themedInk } from "@/lib/ink/tools";
 import { useTheme } from "@/lib/useTheme";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { ThemeIcon, switchTheme } from "@/components/ui/ThemeToggle";
 import type { ToolKind, ToolState } from "@/lib/types";
 import { Icon } from "@/components/ui/icons";
 
@@ -98,23 +99,22 @@ export function Toolbar(p: ToolbarProps) {
           <Icon.redo />
         </TBtn>
         <Divider />
-        <TBtn label="Draw with finger" active={ts.drawWithFinger} onClick={() => onToolState({ ...ts, drawWithFinger: !ts.drawWithFinger })}>
-          <Icon.finger />
-        </TBtn>
-        <button
+        <TBtn
+          label={ts.tutorMode ? "Tutor on: checks your work as you write (tap to turn off)" : "Tutor off (tap to turn on)"}
+          active={ts.tutorMode}
           onClick={() => onToolState({ ...ts, tutorMode: !ts.tutorMode })}
-          aria-pressed={ts.tutorMode}
-          className={`flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors ${ts.tutorMode ? "bg-mark text-white" : "bg-desk text-ink-soft"}`}
         >
-          <Icon.tutor size={18} />
-          Tutor {ts.tutorMode ? "on" : "off"}
-        </button>
-        {p.onCheck && (
-          <button onClick={p.onCheck} disabled={p.checking} className="h-10 rounded-full border border-rule px-3 text-sm font-medium disabled:opacity-50">
-            {p.checking ? "Checking…" : "Check page"}
-          </button>
-        )}
-        <ThemeToggle />
+          <span className="relative">
+            <Icon.tutor />
+            {ts.tutorMode && p.checking && <span className="absolute -right-1 -top-1 h-2 w-2 animate-pulse rounded-full bg-ink-soft" aria-hidden />}
+          </span>
+        </TBtn>
+        <MoreMenu
+          drawWithFinger={ts.drawWithFinger}
+          onDrawWithFinger={() => onToolState({ ...ts, drawWithFinger: !ts.drawWithFinger })}
+          onCheck={p.onCheck}
+          checking={p.checking}
+        />
         <TBtn label="Ask RedLine" active={p.aiOpen} onClick={p.onToggleAI}>
           <Icon.sparkle />
         </TBtn>
@@ -224,7 +224,7 @@ function TBtn({ label, active, disabled, onClick, children }: { label: string; a
       aria-pressed={active}
       disabled={disabled}
       onClick={onClick}
-      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors disabled:opacity-30 ${active ? "bg-ink text-paper" : "text-ink hover:bg-desk"}`}
+      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ink transition-colors disabled:opacity-30 ${active ? "bg-ink/10" : "hover:bg-desk"}`}
     >
       {children}
     </button>
@@ -268,6 +268,73 @@ function FavoriteChip({ fav, active, onApply, onRemove }: { fav: Favorite; activ
           opacity={fav.tool === "highlighter" ? 0.55 : 1}
         />
       </svg>
+    </button>
+  );
+}
+
+/** "⋯": the settings you change once a session, kept off the toolbar. */
+function MoreMenu({ drawWithFinger, onDrawWithFinger, onCheck, checking }: { drawWithFinger: boolean; onDrawWithFinger(): void; onCheck?(): void; checking?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const dark = useTheme() === "dark";
+
+  useEffect(() => {
+    if (!open) return;
+    // Capture phase: the page canvas swallows its own pointer events.
+    const away = (e: PointerEvent) => !wrap.current?.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", away, true);
+    window.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("pointerdown", away, true);
+      window.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrap} className="relative">
+      <TBtn label="More" active={open} onClick={() => setOpen((o) => !o)}>
+        <Icon.more />
+      </TBtn>
+      {open && (
+        <div role="menu" className="absolute right-0 top-12 z-40 w-64 rounded-xl bg-paper p-1.5 shadow-xl ring-1 ring-rule animate-[sheet-in_.15s_ease-out]">
+          {onCheck && (
+            <MenuRow
+              icon={<Icon.check size={20} />}
+              label={checking ? "Checking…" : "Check page now"}
+              disabled={checking}
+              onClick={() => {
+                onCheck();
+                setOpen(false);
+              }}
+            />
+          )}
+          <MenuRow icon={<Icon.finger size={20} />} label="Draw with finger" on={drawWithFinger} onClick={onDrawWithFinger} />
+          {/* The menu closes in the same update as the theme change, so it vanishes under the ink. */}
+          <MenuRow icon={<ThemeIcon size={20} />} label="Dark mode" on={dark} onClick={(el) => switchTheme(el, () => setOpen(false))} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MenuRow({ icon, label, on, disabled, onClick }: { icon: ReactNode; label: string; on?: boolean; disabled?: boolean; onClick(el: HTMLElement): void }) {
+  const isSwitch = on !== undefined;
+  return (
+    <button
+      role={isSwitch ? "menuitemcheckbox" : "menuitem"}
+      aria-checked={isSwitch ? on : undefined}
+      disabled={disabled}
+      onClick={(e) => onClick(e.currentTarget)}
+      className="flex h-11 w-full items-center gap-3 rounded-lg px-2.5 text-left text-[15px] text-ink transition-colors hover:bg-desk disabled:opacity-50"
+    >
+      <span className="flex w-6 justify-center text-ink-soft">{icon}</span>
+      <span className="flex-1">{label}</span>
+      {isSwitch && (
+        <span className={`relative h-[22px] w-9 shrink-0 rounded-full transition-colors ${on ? "bg-ink" : "bg-ink/15"}`} aria-hidden>
+          <span className={`absolute top-[3px] h-4 w-4 rounded-full bg-paper shadow-sm transition-[left] ${on ? "left-[17px]" : "left-[3px]"}`} />
+        </span>
+      )}
     </button>
   );
 }
