@@ -48,6 +48,7 @@ export interface Page {
   updatedAt: number;
   brain?: PageBrain;
   quiz?: QuizQuestion[];
+  quizMeta?: QuizMeta; // appended: timer, hints, revealed answers, saved grades
   demoId?: string; // set on pages of the demo notebooks (demo mode replay)
 }
 
@@ -143,6 +144,40 @@ export interface QuizQuestion {
   answerKind: "equation" | "expression" | "number";
   answerBox?: Box;
   sourcePageIds: string[];
+  // Appended (customizable quizzes): all optional, older quizzes still load.
+  difficulty?: QuizDifficulty;
+  style?: QuizStyle;
+  hint?: string; // a nudge, never the answer
+}
+
+// ---------- Quiz settings (appended) ----------
+export type QuizDifficulty = "warm-up" | "standard" | "challenge" | "exam";
+export type QuizStyle = "solve" | "simplify" | "derivative" | "integral" | "word";
+export type QuizFocus = "weak" | "mixed" | "topics";
+
+export interface QuizSettings {
+  count: number; // 1-10
+  difficulty: QuizDifficulty;
+  focus: QuizFocus;
+  topics: string[]; // used when focus = "topics"
+  styles: QuizStyle[]; // empty = any
+  notebookIds: string[]; // empty = every notebook
+  timerMin: number; // 0 = no timer
+  hints: boolean;
+  instructions: string; // free text, e.g. "only trig integrals"
+}
+
+/** Saved on each quiz page. */
+export interface QuizMeta {
+  title: string;
+  part: number; // 1-based page of a multi-page quiz
+  parts: number;
+  startedAt: number;
+  timerMin: number;
+  hints: boolean;
+  revealed: boolean;
+  grades: Record<string, Verdict>;
+  settings: QuizSettings;
 }
 
 export interface PageContext {
@@ -170,6 +205,8 @@ export interface AskResponse {
 export interface QuizRequest {
   pages: PageContext[];
   mastery: MasteryState[];
+  settings?: QuizSettings; // appended: omitted = 5 standard questions on weak spots
+  exclude?: string[]; // appended: prompts not to repeat (used by "replace this question")
 }
 
 export interface HintRequest {

@@ -6,11 +6,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { allStruggles } from "@/lib/db";
 import { masteryFromEvents } from "@/lib/math/mastery";
-import type { AskRequest, AskResponse, Box, MasteryState, Notebook, Page, QuizQuestion, StruggleEvent } from "@/lib/types";
+import type { AskRequest, AskResponse, Box, Notebook, Page, QuizQuestion, QuizSettings, StruggleEvent } from "@/lib/types";
 import { ConceptMap } from "@/components/brain/ConceptMap";
 import { Icon } from "@/components/ui/icons";
 import { Squiggle } from "@/components/ui/Squiggle";
 import { indexStalePages, loadAllPages, pageLabel, toContexts } from "./indexing";
+import { COUNTS, DEFAULT_SETTINGS, DIFFICULTIES, PER_PAGE, PRESETS, STYLES, TIMERS, generateQuiz, knownTopics, loadSettings, saveSettings } from "./quizApi";
 
 type Tab = "ask" | "quiz" | "insights";
 interface Msg {
@@ -27,7 +28,7 @@ export interface AIPanelProps {
   snippet?: { png: string; box: Box } | null;
   onClearSnippet?(): void;
   onNavigate(pageId: string): void;
-  onMakeQuizPage(questions: QuizQuestion[]): void;
+  onMakeQuizPage(questions: QuizQuestion[], settings: QuizSettings): void;
   /** Called with pages whose transcripts were just refreshed, so the open notebook keeps them. */
   onIndexed?(pages: Page[]): void;
 }
@@ -88,7 +89,7 @@ export function AIPanel(props: AIPanelProps) {
       {props.mock && <div className="bg-desk px-3 py-1 text-center text-[11px] text-ink-soft">Sample data (mock mode)</div>}
 
       {tab === "ask" && <AskTab {...props} all={all} struggles={struggles} ensureIndexed={ensureIndexed} busy={busy} />}
-      {tab === "quiz" && <QuizTab {...props} struggles={struggles} ensureIndexed={ensureIndexed} busy={busy} />}
+      {tab === "quiz" && <QuizTab {...props} all={all} struggles={struggles} />}
       {tab === "insights" && <InsightsTab all={all} struggles={struggles} onNavigate={props.onNavigate} />}
     </aside>
   );
@@ -226,59 +227,238 @@ function CitedText({ text, labelOf, onNavigate }: { text: string; labelOf(id: st
 
 // ---------------- Quiz ----------------
 
-function QuizTab({ struggles, ensureIndexed, busy, mock, onMakeQuizPage }: AIPanelProps & { struggles: StruggleEvent[]; ensureIndexed(): Promise<{ pages: Page[]; notebooks: Map<string, Notebook> }>; busy: string | null }) {
+function QuizTab({ all, struggles, mock, onMakeQuizPage }: AIPanelProps & { all: { pages: Page[]; notebooks: Map<string, Notebook> }; struggles: StruggleEvent[] }) {
+  const [settings, setSettingsState] = useState<QuizSettings>(() => loadSettings());
+  const [custom, setCustom] = useState(false);
   const [qs, setQs] = useState<QuizQuestion[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [usedSettings, setUsedSettings] = useState<QuizSettings | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [replacing, setReplacing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const setSettings = (patch: Partial<QuizSettings>) =>
+    setSettingsState((s) => {
+      const next = { ...s, ...patch };
+      saveSettings(next);
+      return next;
+    });
+
+  const topics = knownTopics(all.pages, struggles.map((e) => e.topic));
+  const notebooks = [...all.notebooks.values()];
+  const activePreset = PRESETS.find((p) => Object.entries(p.settings).every(([k, v]) => settings[k as keyof QuizSettings] === v))?.id;
+  const busy = status !== null;
+
   const make = async () => {
-    setLoading(true);
     setError(null);
+    setStatus("Getting ready…");
     try {
-      const data = await ensureIndexed();
-      const pages = toContexts(data.pages, data.notebooks);
-      if (!pages.length && !mock) throw new Error("Write a few pages of notes first, then I can quiz you on them.");
-      const mastery: MasteryState[] = masteryFromEvents(struggles);
-      const res = await fetch(`/api/quiz${mock ? "?mock=1" : ""}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pages, mastery }) });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Quiz is unavailable right now.");
-      setQs(json as QuizQuestion[]);
+      const out = await generateQuiz(settings, { mock, onProgress: setStatus });
+      setQs(out);
+      setUsedSettings(settings);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
-      setLoading(false);
+      setStatus(null);
     }
   };
+
+  const replace = async (q: QuizQuestion) => {
+    if (!qs || !usedSettings) return;
+    setReplacing(q.id);
+    setError(null);
+    try {
+      const topicOnly: QuizSettings = { ...usedSettings, count: 1, focus: "topics", topics: [q.topic] };
+      const [fresh] = await generateQuiz(topicOnly, { mock, exclude: qs.map((x) => x.prompt) });
+      if (fresh) setQs((cur) => cur?.map((x) => (x.id === q.id ? fresh : x)) ?? cur);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't replace that one.");
+    } finally {
+      setReplacing(null);
+    }
+  };
+
+  const pagesNeeded = qs ? Math.ceil(qs.length / PER_PAGE) : 0;
+  const chip = (on: boolean) => `rounded-full px-3 py-1.5 text-[13px] font-medium ring-1 transition-colors ${on ? "bg-ink text-paper ring-ink" : "bg-surface text-ink ring-rule"}`;
+  const seg = (on: boolean) => `h-9 flex-1 rounded-lg text-[13px] font-medium ${on ? "bg-ink text-paper" : "text-ink-soft"}`;
 
   return (
     <div className="scroll-y flex-1 p-3">
       <p className="font-hand text-2xl">Quiz me</p>
-      <p className="text-sm text-ink-soft">Questions from your own notes, aimed at the topics you&apos;ve found hardest.</p>
-      <button onClick={make} disabled={loading} className="mt-3 h-11 w-full rounded-full bg-ink font-medium text-paper disabled:opacity-50">
-        {qs ? "Make a new quiz" : "Make me a quiz"}
+      <p className="text-sm text-ink-soft">Questions from your own notes. Pick a preset or make it yours.</p>
+
+      {/* presets */}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {PRESETS.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => setSettings({ ...p.settings, topics: [], styles: [], instructions: "" })}
+            className={`rounded-xl p-2.5 text-left ring-1 ${activePreset === p.id ? "bg-ink text-paper ring-ink" : "bg-surface ring-rule"}`}
+          >
+            <div className="text-sm font-semibold">{p.label}</div>
+            <div className={`text-[11px] ${activePreset === p.id ? "text-paper/80" : "text-ink-soft"}`}>{p.blurb}</div>
+          </button>
+        ))}
+      </div>
+
+      <button onClick={() => setCustom((c) => !c)} className="mt-3 flex w-full items-center justify-between rounded-xl bg-desk px-3 py-2.5 text-sm font-medium">
+        <span>Customize</span>
+        <span className="text-ink-soft">
+          {settings.count} · {DIFFICULTIES.find((d) => d.id === settings.difficulty)?.label}
+          {settings.timerMin ? ` · ${settings.timerMin} min` : ""} {custom ? "▴" : "▾"}
+        </span>
       </button>
-      {(loading || busy) && <Squiggle className="mt-3" label={busy ?? "Writing questions…"} />}
+
+      {custom && (
+        <div className="mt-2 space-y-4 rounded-xl bg-surface p-3 ring-1 ring-rule">
+          <Field label="Questions">
+            <div className="flex gap-1 rounded-xl bg-desk p-1">
+              {COUNTS.map((n) => (
+                <button key={n} onClick={() => setSettings({ count: n })} className={seg(settings.count === n)}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="Difficulty">
+            <div className="flex gap-1 rounded-xl bg-desk p-1">
+              {DIFFICULTIES.map((d) => (
+                <button key={d.id} onClick={() => setSettings({ difficulty: d.id })} className={seg(settings.difficulty === d.id)}>
+                  {d.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="Focus">
+            <div className="flex gap-1 rounded-xl bg-desk p-1">
+              {(
+                [
+                  ["weak", "Weak spots"],
+                  ["mixed", "Mixed"],
+                  ["topics", "Pick topics"],
+                ] as const
+              ).map(([id, label]) => (
+                <button key={id} onClick={() => setSettings({ focus: id })} className={seg(settings.focus === id)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {settings.focus === "topics" && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {topics.length === 0 && <span className="text-xs text-ink-soft">Topics show up once your pages are read.</span>}
+                {topics.map((t) => (
+                  <button key={t} onClick={() => setSettings({ topics: toggle(settings.topics, t) })} className={chip(settings.topics.includes(t))}>
+                    {t.replace(/-/g, " ")}
+                  </button>
+                ))}
+              </div>
+            )}
+          </Field>
+          <Field label="Question types" note={settings.styles.length ? undefined : "any"}>
+            <div className="flex flex-wrap gap-1.5">
+              {STYLES.map((st) => (
+                <button key={st.id} onClick={() => setSettings({ styles: toggle(settings.styles, st.id) })} className={chip(settings.styles.includes(st.id))}>
+                  {st.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+          {notebooks.length > 1 && (
+            <Field label="From notebooks" note={settings.notebookIds.length ? undefined : "all"}>
+              <div className="flex flex-wrap gap-1.5">
+                {notebooks.map((nb) => (
+                  <button key={nb.id} onClick={() => setSettings({ notebookIds: toggle(settings.notebookIds, nb.id) })} className={chip(settings.notebookIds.includes(nb.id))}>
+                    {nb.title}
+                  </button>
+                ))}
+              </div>
+            </Field>
+          )}
+          <Field label="Timer">
+            <div className="flex gap-1 rounded-xl bg-desk p-1">
+              {TIMERS.map((m) => (
+                <button key={m} onClick={() => setSettings({ timerMin: m })} className={seg(settings.timerMin === m)}>
+                  {m ? `${m}m` : "Off"}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <label className="flex items-center justify-between text-sm">
+            <span className="font-medium">Allow hints</span>
+            <input type="checkbox" checked={settings.hints} onChange={(e) => setSettings({ hints: e.target.checked })} className="h-5 w-5 accent-[var(--ink)]" />
+          </label>
+          <Field label="Anything else?">
+            <input
+              value={settings.instructions}
+              maxLength={200}
+              onChange={(e) => setSettings({ instructions: e.target.value })}
+              placeholder="e.g. only trig integrals, small whole numbers"
+              className="h-10 w-full rounded-lg border border-rule bg-paper px-3 text-sm outline-none focus:border-ink"
+            />
+          </Field>
+          <button onClick={() => setSettings({ ...DEFAULT_SETTINGS })} className="text-xs text-ink-soft underline">
+            Reset to default
+          </button>
+        </div>
+      )}
+
+      <button onClick={make} disabled={busy || (settings.focus === "topics" && settings.topics.length === 0)} className="mt-3 h-11 w-full rounded-full bg-ink font-medium text-paper disabled:opacity-50">
+        {qs ? "Make a new quiz" : `Make ${settings.count} question${settings.count === 1 ? "" : "s"}`}
+      </button>
+      {settings.focus === "topics" && settings.topics.length === 0 && <p className="mt-1 text-center text-xs text-ink-soft">Pick at least one topic.</p>}
+      {busy && <Squiggle className="mt-3" label={status ?? "Writing questions…"} />}
       {error && <p className="mt-3 text-sm text-mark">{error}</p>}
-      {qs && !loading && (
+
+      {qs && !busy && (
         <>
           <ol className="mt-4 space-y-2">
             {qs.map((q, i) => (
               <li key={q.id} className="rounded-xl bg-surface p-3 ring-1 ring-rule">
-                <div className="text-[15px]">
-                  <span className="font-semibold">{i + 1}.</span> {q.prompt}
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 text-[15px]">
+                    <span className="font-semibold">{i + 1}.</span> {replacing === q.id ? <span className="text-ink-soft">Finding another…</span> : q.prompt}
+                  </div>
+                  <button aria-label="Replace this question" title="Replace" disabled={!!replacing} onClick={() => replace(q)} className="h-8 w-8 shrink-0 rounded-full text-ink-soft hover:bg-desk disabled:opacity-40">
+                    ↻
+                  </button>
+                  <button aria-label="Remove this question" title="Remove" onClick={() => setQs(qs.filter((x) => x.id !== q.id))} className="h-8 w-8 shrink-0 rounded-full text-ink-soft hover:bg-desk">
+                    <Icon.close size={14} className="mx-auto" />
+                  </button>
                 </div>
-                <div className="mt-1 text-[11px] uppercase tracking-wide text-ink-soft">{q.topic.replace(/-/g, " ")}</div>
+                <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] uppercase tracking-wide text-ink-soft">
+                  <span>{q.topic.replace(/-/g, " ")}</span>
+                  {q.difficulty && <span className="rounded bg-desk px-1.5">{q.difficulty}</span>}
+                  {q.style && <span className="rounded bg-desk px-1.5">{STYLES.find((s) => s.id === q.style)?.label ?? q.style}</span>}
+                </div>
               </li>
             ))}
           </ol>
-          <button onClick={() => onMakeQuizPage(qs)} className="mt-3 h-11 w-full rounded-full border-2 border-ink font-medium">
-            Make quiz page
-          </button>
-          <p className="mt-2 text-center text-xs text-ink-soft">Answer by hand. Tutor mode grades each answer.</p>
+          {qs.length > 0 && (
+            <button onClick={() => onMakeQuizPage(qs, usedSettings ?? settings)} className="mt-3 h-11 w-full rounded-full border-2 border-ink font-medium">
+              {pagesNeeded > 1 ? `Make ${pagesNeeded} quiz pages` : "Make quiz page"}
+            </button>
+          )}
+          <p className="mt-2 text-center text-xs text-ink-soft">
+            Answer by hand. Tutor mode grades each answer{(usedSettings ?? settings).timerMin ? `, and the ${(usedSettings ?? settings).timerMin}-minute timer starts on the page` : ""}.
+          </p>
         </>
       )}
     </div>
   );
+}
+
+function Field({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-soft">
+        {label} {note && <span className="font-normal normal-case">({note})</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function toggle<T>(list: T[], v: T): T[] {
+  return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
 }
 
 // ---------------- Insights ----------------

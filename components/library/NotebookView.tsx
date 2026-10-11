@@ -15,11 +15,13 @@ import { segmentLines } from "@/lib/ink/segment";
 import { INK_COLORS, TOOL_PRESETS, themedInk } from "@/lib/ink/tools";
 import { useTheme } from "@/lib/useTheme";
 import { unlockAudio } from "@/lib/voice";
-import { PAGE_H, type Box, type CheckRequest, type CheckResult, type CheckedLine, type LineBox, type Notebook, type Page, type PageBrain, type QuizQuestion, type ReadLine, type Stroke, type StruggleEvent, type TemplateId, type ToolState, type Verdict } from "@/lib/types";
+import { PAGE_H, type Box, type CheckRequest, type CheckResult, type CheckedLine, type LineBox, type Notebook, type Page, type PageBrain, type QuizMeta, type QuizQuestion, type QuizSettings, type ReadLine, type Stroke, type StruggleEvent, type TemplateId, type ToolState, type Verdict } from "@/lib/types";
 import { AIPanel } from "@/components/ai/AIPanel";
 import { useBackgroundIndex } from "@/components/ai/useBackgroundIndex";
 import { HintCard } from "@/components/ai/HintCard";
 import { QuizOverlay, gradeQuiz, layoutQuiz } from "@/components/ai/QuizOverlay";
+import { QuizBar } from "@/components/ai/QuizBar";
+import { PER_PAGE, generateQuiz, quizTitle } from "@/components/ai/quizApi";
 import { TutorMarks } from "@/components/ai/TutorMarks";
 import { Toolbar } from "@/components/toolbar/Toolbar";
 import { PageRail } from "./PageRail";
@@ -57,6 +59,8 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
   const [checkError, setCheckError] = useState<string | null>(null);
   const [openLine, setOpenLine] = useState<CheckedLine | null>(null);
   const [grades, setGrades] = useState<Record<string, Verdict>>({});
+  const [shownHints, setShownHints] = useState<string[]>([]);
+  const [retrying, setRetrying] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const canvasRef = useRef<PageCanvasHandle>(null);
@@ -101,6 +105,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
     setResult(null);
     setOpenLine(null);
     setGrades({});
+    setShownHints([]);
     setCheckError(null);
     setSnippet(null);
     checkedVersion.current = -1;
@@ -149,6 +154,15 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
 
   // Flush a pending save when leaving the page.
   useEffect(() => () => clearTimeout(saveTimer.current), []);
+
+  /** Quiz state lives on the page (timer, hints, revealed answers, grades); saved without touching ink or updatedAt. */
+  const patchQuizMeta = useCallback(async (pageId: string, fn: (m: QuizMeta) => QuizMeta) => {
+    const stored = await db().pages.get(pageId);
+    if (!stored?.quizMeta) return;
+    const quizMeta = fn(stored.quizMeta);
+    await db().pages.update(pageId, { quizMeta });
+    setPages((ps) => ps.map((p) => (p.id === pageId ? { ...p, quizMeta } : p)));
+  }, []);
 
   // ---------- Live Check ----------
   const runCheck = useCallback(
@@ -252,7 +266,11 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
           }
           if (r.firstErrorIndex == null) setOpenLine(null);
           // Quiz pages: each check covers one answer block, so merge instead of replacing the other grades.
-          if (p.quiz?.length) setGrades((g) => ({ ...g, ...gradeQuiz(p.quiz!, r.lines) }));
+          if (p.quiz?.length) {
+            const fresh = gradeQuiz(p.quiz, r.lines);
+            setGrades((g) => ({ ...g, ...fresh }));
+            if (p.quizMeta) patchQuizMeta(p.id, (m) => ({ ...m, grades: { ...m.grades, ...fresh } }));
+          }
         }
 
         // Struggle log for mastery: one event per judged line, keyed by its strokes so re-checks don't
@@ -280,7 +298,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
         }
       }
     },
-    [mock],
+    [mock, patchQuizMeta],
   );
 
   const runCheckRef = useRef(runCheck);
@@ -335,15 +353,40 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
     [pages, router, mock, selectPage],
   );
 
-  const makeQuizPage = async (qs: QuizQuestion[]) => {
-    if (!notebook) return;
-    const fresh = await addPage(notebook.id, "grid");
-    const quizPage: Page = { ...fresh, quiz: layoutQuiz(qs) };
-    await savePage(quizPage);
-    setPages((ps) => [...ps, quizPage]);
-    selectPage(quizPage.id);
+  /** One quiz page per 5 questions; the timer starts now. */
+  const makeQuizPage = async (qs: QuizQuestion[], settings: QuizSettings) => {
+    if (!notebook || !qs.length) return;
+    const parts = Math.ceil(qs.length / PER_PAGE);
+    const startedAt = Date.now();
+    const made: Page[] = [];
+    for (let i = 0; i < parts; i++) {
+      const fresh = await addPage(notebook.id, "grid");
+      const quizMeta: QuizMeta = { title: quizTitle(settings), part: i + 1, parts, startedAt, timerMin: settings.timerMin, hints: settings.hints, revealed: false, grades: {}, settings };
+      const quizPage: Page = { ...fresh, quiz: layoutQuiz(qs.slice(i * PER_PAGE, (i + 1) * PER_PAGE)), quizMeta };
+      await savePage(quizPage);
+      made.push(quizPage);
+    }
+    setPages((ps) => [...ps, ...made]);
+    selectPage(made[0].id);
     setAiOpen(false);
     setTool((t) => ({ ...t, tutorMode: true }));
+  };
+
+  /** A follow-up quiz on just the topics this page's quiz missed. */
+  const retryMissed = async (topics: string[]) => {
+    const settings = page?.quizMeta?.settings;
+    if (!settings) return;
+    setRetrying(true);
+    try {
+      const next: QuizSettings = { ...settings, focus: "topics", topics, count: Math.min(5, Math.max(3, topics.length * 2)) };
+      const qs = await generateQuiz(next, { mock, exclude: page?.quiz?.map((q) => q.prompt) });
+      await makeQuizPage(qs, next);
+      setToast("New quiz on what you missed");
+    } catch (e) {
+      setCheckError(e instanceof Error ? e.message : "Couldn't make the retry quiz.");
+    } finally {
+      setRetrying(false);
+    }
   };
 
   if (missing)
@@ -441,7 +484,18 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
             }}
           >
             {snippet && <rect x={snippet.box.x} y={snippet.box.y} width={snippet.box.w} height={snippet.box.h} rx={8} fill="rgba(36,86,201,.06)" stroke={theme === "dark" ? "#7aa5ff" : "#2456c9"} strokeDasharray="8 6" strokeWidth={2} />}
-            {page.quiz?.length ? <QuizOverlay questions={page.quiz} grades={grades} /> : null}
+            {page.quiz?.length ? (
+              <QuizOverlay
+                questions={page.quiz}
+                grades={{ ...page.quizMeta?.grades, ...grades }}
+                title={page.quizMeta ? `${page.quizMeta.title}${page.quizMeta.parts > 1 ? ` · page ${page.quizMeta.part} of ${page.quizMeta.parts}` : ""}` : undefined}
+                firstNumber={page.quizMeta ? (page.quizMeta.part - 1) * PER_PAGE + 1 : 1}
+                hintsAllowed={page.quizMeta?.hints ?? false}
+                shownHints={shownHints}
+                revealed={page.quizMeta?.revealed ?? false}
+                onToggleHint={(id) => setShownHints((h) => (h.includes(id) ? h.filter((x) => x !== id) : [...h, id]))}
+              />
+            ) : null}
             {tool.tutorMode && shown && (
               <TutorMarks
                 result={shown}
@@ -453,14 +507,24 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
             )}
           </PageCanvas>
 
+          {page.quiz?.length && page.quizMeta ? (
+            <QuizBar
+              meta={{ ...page.quizMeta, grades: { ...page.quizMeta.grades, ...grades } }}
+              questions={page.quiz}
+              onReveal={() => patchQuizMeta(page.id, (m) => ({ ...m, revealed: true }))}
+              onRetryMissed={retryMissed}
+              retrying={retrying}
+            />
+          ) : null}
+
           {/* status chip */}
           {tool.tutorMode && (checking || checkError) && (
-            <div className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full bg-paper/95 px-3 py-1.5 text-sm shadow-md ring-1 ring-rule">
+            <div className={`pointer-events-none absolute left-1/2 ${page.quizMeta ? "top-16" : "top-3"} z-20 -translate-x-1/2 rounded-full bg-paper/95 px-3 py-1.5 text-sm shadow-md ring-1 ring-rule`}>
               {checking ? <span className="font-hand text-lg">Reading your work…</span> : <span className="text-ink-soft">{checkError}</span>}
             </div>
           )}
           {toast && (
-            <div className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full bg-ok px-4 py-1.5 font-hand text-xl text-white shadow-md animate-[sheet-in_.2s_ease-out]">{toast}</div>
+            <div className={`pointer-events-none absolute left-1/2 ${page.quizMeta ? "top-16" : "top-3"} z-20 -translate-x-1/2 rounded-full bg-ok px-4 py-1.5 font-hand text-xl text-white shadow-md animate-[sheet-in_.2s_ease-out]`}>{toast}</div>
           )}
 
           {openLine && errLine && tool.tutorMode && (

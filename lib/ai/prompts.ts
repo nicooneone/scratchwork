@@ -1,4 +1,5 @@
 // Owner: D. Every prompt and JSON schema the AI routes use, in one place.
+import type { QuizSettings } from "../types";
 
 // ---------- /api/check: read handwritten math lines ----------
 export const READER_SYSTEM = `You read a student's handwritten math from an image of their notebook page.
@@ -111,15 +112,17 @@ export const QUIZ_SYSTEM = `You write a short practice quiz for a student, based
 
 You get their page transcripts (<page id="...">) and their mastery per topic (pKnown from 0 to 1, lower = weaker).
 
-Write exactly 5 questions:
-- At least 3 must target the 2 weakest topics.
-- Each must be solvable by hand in under 3 minutes, in the same style as their notes.
+Follow the QUIZ SETTINGS in the request exactly: the number of questions, difficulty, focus, topics and question styles.
+- Each must be solvable by hand on paper, in the same notation as their notes.
 - "answer" is the final answer in plain ASCII math a parser understands (x = 11, (x^2 + 1)^3, 2*x*sin(x) + x^2*cos(x), 7). No "+ C" on integrals.
 - "answerKind": "equation" if the answer is like x = 11, "number" if it is a single number, otherwise "expression".
 - "topic": the kebab-case topic it practices.
 - "sourcePageIds": ids of the pages the question is based on (exact ids only).
 - "checkEquation": for "solve for x" questions, the equation itself in ASCII (e.g. 2*(x - 3) + 4 = x + 5). Otherwise omit.
 - "integrand": for integral questions, the integrand in ASCII (e.g. 2*x*exp(x^2)). Otherwise omit.
+- "difficulty": "warm-up", "standard", "challenge" or "exam", matching how hard the question really is.
+- "style": "solve", "simplify", "derivative", "integral" or "word" (a short real-world word problem).
+- "hint": one short sentence that nudges toward the first step. It must NOT contain the answer or any intermediate result.
 Work each answer out carefully step by step before writing it: a wrong answer key is the worst possible mistake.`;
 
 export const QUIZ_SCHEMA = {
@@ -137,6 +140,9 @@ export const QUIZ_SCHEMA = {
           sourcePageIds: { type: "array", items: { type: "string" } },
           checkEquation: { type: "string" },
           integrand: { type: "string" },
+          difficulty: { type: "string", enum: ["warm-up", "standard", "challenge", "exam"] },
+          style: { type: "string", enum: ["solve", "simplify", "derivative", "integral", "word"] },
+          hint: { type: "string" },
         },
         required: ["prompt", "topic", "answer", "answerKind", "sourcePageIds"],
       },
@@ -181,3 +187,32 @@ export const CANNED_HINTS: Record<string, string> = {
   "arithmetic-slip": "Check the arithmetic on this line one number at a time. Is every calculation right?",
   default: "Compare this line with the one above it. What changed, and is that change allowed?",
 };
+
+// ---------- Quiz settings -> plain-language instructions ----------
+const DIFFICULTY_TEXT: Record<string, string> = {
+  "warm-up": "warm-up: one or two steps, confidence builders",
+  standard: "standard: like a typical homework problem",
+  challenge: "challenge: several steps or a twist, still under 5 minutes",
+  exam: "exam: the hardest problem that could appear on a test on these notes",
+};
+const STYLE_TEXT: Record<string, string> = {
+  solve: "solve an equation",
+  simplify: "simplify or expand an expression",
+  derivative: "find a derivative",
+  integral: "evaluate an integral",
+  word: "a short word problem",
+};
+
+export function quizSettingsText(s: QuizSettings | undefined, exclude: string[] = []): string {
+  const count = Math.max(1, Math.min(10, Math.round(s?.count ?? 5)));
+  const lines = [`- Write exactly ${count} question${count === 1 ? "" : "s"}.`];
+  lines.push(`- Difficulty: ${DIFFICULTY_TEXT[s?.difficulty ?? "standard"] ?? DIFFICULTY_TEXT.standard}.`);
+  const focus = s?.focus ?? "weak";
+  if (focus === "weak") lines.push(`- Focus: at least ${Math.ceil(count * 0.6)} must target the 2 weakest topics.`);
+  else if (focus === "mixed") lines.push("- Focus: spread the questions across all the topics in the notes.");
+  else if (s?.topics?.length) lines.push(`- Focus: ONLY these topics: ${s.topics.join(", ")}.`);
+  if (s?.styles?.length) lines.push(`- Question styles allowed: ${s.styles.map((x) => STYLE_TEXT[x] ?? x).join("; ")}. Use no other style.`);
+  if (s?.instructions?.trim()) lines.push(`- Student's own request (follow it unless it asks for something unsafe or off-topic): "${s.instructions.trim().slice(0, 200)}"`);
+  if (exclude.length) lines.push(`- Do not repeat or closely copy these questions: ${exclude.map((e) => `"${e.slice(0, 120)}"`).join("; ")}.`);
+  return lines.join("\n");
+}
