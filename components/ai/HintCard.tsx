@@ -1,11 +1,13 @@
 "use client";
 // Owner: C. The tutor's note for the first wrong line: Socratic hint ladder (1 -> 3), spoken aloud,
 // "Another hint", "I fixed it". Never shows the corrected line; the server's leak guard enforces that.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { canListen, listen, speak, stopSpeaking, unlockAudio } from "@/lib/voice";
 import type { CheckedLine, HintRequest, HintResponse } from "@/lib/types";
 import { Icon } from "@/components/ui/icons";
 import { Squiggle } from "@/components/ui/Squiggle";
+import { buildWhy } from "@/lib/math/why";
+import { WhyGraph } from "./WhyGraph";
 
 export function HintCard({
   line,
@@ -27,6 +29,9 @@ export function HintCard({
   const [speaking, setSpeaking] = useState(false);
   const [listening, setListening] = useState(false);
   const [micOk] = useState(() => canListen());
+  // "Show me why": a graph of what this step did, built by the math engine (no AI, instant).
+  const why = useMemo(() => buildWhy(line, context), [line, context]);
+  const [showWhy, setShowWhy] = useState(false);
   const autoSpeak = useRef(true);
 
   const fetchHint = useCallback(
@@ -63,7 +68,7 @@ export function HintCard({
   const current = hints[level - 1];
 
   return (
-    <div className="chrome absolute bottom-4 right-4 z-30 w-[min(360px,calc(100%-2rem))] rounded-2xl border-2 border-mark/70 bg-paper p-4 shadow-2xl animate-[panel-in_.2s_ease-out]" data-ui="">
+    <div className="chrome absolute bottom-4 right-4 z-30 max-h-[calc(100%-2rem)] w-[min(360px,calc(100%-2rem))] overflow-y-auto overscroll-contain rounded-2xl border-2 border-mark/70 bg-paper p-4 shadow-2xl animate-[panel-in_.2s_ease-out]" data-ui="">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>
           <div className="font-hand text-2xl font-bold leading-none text-mark">Line {line.index}</div>
@@ -130,6 +135,21 @@ export function HintCard({
           <Icon.check size={16} /> I fixed it
         </button>
       </div>
+      {why && (
+        <button
+          onClick={() => setShowWhy((v) => !v)}
+          aria-expanded={showWhy}
+          className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-full border-2 border-ink/80 text-sm font-semibold"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M3 3v18h18" />
+            <path d="M6 16 L11 10 L14 13 L20 6" />
+          </svg>
+          {showWhy ? "Hide the graph" : "Show me why"}
+        </button>
+      )}
+      {why && showWhy && <WhyGraph graph={why} />}
+
       <div className="mt-2 flex gap-1" aria-label={`Hint ${level} of 3`}>
         {[1, 2, 3].map((n) => (
           <span key={n} className={`h-1 flex-1 rounded-full ${n <= level ? "bg-mark" : "bg-rule"}`} />
