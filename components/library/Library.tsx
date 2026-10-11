@@ -8,6 +8,8 @@ import { templateStyle } from "@/lib/ink/templates";
 import type { Notebook, TemplateId } from "@/lib/types";
 import { Icon } from "@/components/ui/icons";
 import { Sheet } from "@/components/ui/Sheet";
+import { Tour } from "@/components/tour/Tour";
+import { libraryTour, markTour, resetNotebookTour, tourDone } from "@/components/tour/tours";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { COVERS } from "./covers";
 import { NotebookCover } from "./NotebookCover";
@@ -16,6 +18,7 @@ export default function Library() {
   const router = useRouter();
   const [notebooks, setNotebooks] = useState<Notebook[] | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [touring, setTouring] = useState(false);
   const [creating, setCreating] = useState(false);
   const [acting, setActing] = useState<Notebook | null>(null);
 
@@ -32,6 +35,9 @@ export default function Library() {
     });
     // Ask the browser not to evict our notebooks under storage pressure.
     navigator.storage?.persist?.().catch(() => {});
+    // First visit on this device: welcome tour (async so it isn't a sync setState in the effect).
+    const t = setTimeout(() => !tourDone("library") && setTouring(true), 500);
+    return () => clearTimeout(t);
   }, []);
 
   return (
@@ -44,8 +50,11 @@ export default function Library() {
           <p className="mt-2 text-ink-soft">The notebook that checks your thinking, not just your answer.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <button onClick={() => setTouring(true)} className="h-11 rounded-full px-4 text-sm font-medium text-ink-soft hover:bg-desk">
+            Take the tour
+          </button>
           <ThemeToggle />
-          <button onClick={() => setCreating(true)} className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-ink px-5 font-medium text-paper shadow-md active:scale-95">
+          <button data-tour="new-notebook" onClick={() => setCreating(true)} className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-ink px-5 font-medium text-paper shadow-md active:scale-95">
             <Icon.plus size={20} /> New notebook
           </button>
         </div>
@@ -70,6 +79,21 @@ export default function Library() {
           router.push(`/notebook/${nb.id}`);
         }}
       />
+      {touring && (
+        <Tour
+          steps={libraryTour((notebooks?.length ?? 0) > 0)}
+          onFinish={() => {
+            markTour("library");
+            setTouring(false);
+            // Replaying from the library should also replay the notebook tour next time one opens.
+            resetNotebookTour();
+          }}
+          onSkip={() => {
+            markTour("all");
+            setTouring(false);
+          }}
+        />
+      )}
       {acting && <ActionsSheet key={acting.id} notebook={acting} onClose={() => setActing(null)} onChanged={load} />}
     </main>
   );

@@ -21,6 +21,9 @@ import { useBackgroundIndex } from "@/components/ai/useBackgroundIndex";
 import { HintCard } from "@/components/ai/HintCard";
 import { QuizOverlay, gradeQuiz, layoutQuiz } from "@/components/ai/QuizOverlay";
 import { QuizBar } from "@/components/ai/QuizBar";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { Tour } from "@/components/tour/Tour";
+import { markTour, notebookTour, tourDone } from "@/components/tour/tours";
 import { PER_PAGE, generateQuiz, quizTitle } from "@/components/ai/quizApi";
 import { TutorMarks } from "@/components/ai/TutorMarks";
 import { Toolbar } from "@/components/toolbar/Toolbar";
@@ -60,6 +63,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
   const [openLine, setOpenLine] = useState<CheckedLine | null>(null);
   const [grades, setGrades] = useState<Record<string, Verdict>>({});
   const [shownHints, setShownHints] = useState<string[]>([]);
+  const [touring, setTouring] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -98,6 +102,21 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
       setCurrentId(ps.find((p) => p.id === initialPageId)?.id ?? ps[0]?.id ?? "");
     })();
   }, [id, initialPageId]);
+
+  // First time anyone opens a notebook on this device: show the tour (setTimeout so it's not a sync setState in the effect).
+  const loaded = !!notebook;
+  useEffect(() => {
+    if (!loaded || tourDone("notebook")) return;
+    const t = setTimeout(() => startTour(), 400);
+    return () => clearTimeout(t);
+  }, [loaded]);
+
+  function startTour() {
+    setAiOpen(false);
+    setRailOpen(true);
+    setOpenLine(null);
+    setTouring(true);
+  }
 
   /** Show another page of this notebook and clear the previous page's marks. */
   const selectPage = useCallback((pageId: string) => {
@@ -432,6 +451,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
         checking={checking}
         railOpen={railOpen}
         onToggleRail={() => setRailOpen((o) => !o)}
+        onTour={startTour}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -451,6 +471,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
 
         <div
           ref={areaRef}
+          data-tour="page"
           className="relative min-w-0 flex-1"
           // Fastest trigger: the moment the pen touches down BELOW the problem, every line above is finished.
           onPointerDownCapture={(e) => {
@@ -485,6 +506,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
           >
             {snippet && <rect x={snippet.box.x} y={snippet.box.y} width={snippet.box.w} height={snippet.box.h} rx={8} fill="rgba(36,86,201,.06)" stroke={theme === "dark" ? "#7aa5ff" : "#2456c9"} strokeDasharray="8 6" strokeWidth={2} />}
             {page.quiz?.length ? (
+              <ErrorBoundary label="Quiz" fallback={null}>
               <QuizOverlay
                 questions={page.quiz}
                 grades={{ ...page.quizMeta?.grades, ...grades }}
@@ -495,6 +517,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
                 revealed={page.quizMeta?.revealed ?? false}
                 onToggleHint={(id) => setShownHints((h) => (h.includes(id) ? h.filter((x) => x !== id) : [...h, id]))}
               />
+              </ErrorBoundary>
             ) : null}
             {tool.tutorMode && shown && (
               <TutorMarks
@@ -508,6 +531,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
           </PageCanvas>
 
           {page.quiz?.length && page.quizMeta ? (
+            <ErrorBoundary label="The quiz bar" compact>
             <QuizBar
               meta={{ ...page.quizMeta, grades: { ...page.quizMeta.grades, ...grades } }}
               questions={page.quiz}
@@ -515,6 +539,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
               onRetryMissed={retryMissed}
               retrying={retrying}
             />
+            </ErrorBoundary>
           ) : null}
 
           {/* status chip */}
@@ -538,6 +563,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
             />
           )}
 
+          <ErrorBoundary label="The AI panel" onReset={() => setAiOpen(false)}>
           <AIPanel
             open={aiOpen}
             onClose={() => setAiOpen(false)}
@@ -548,8 +574,22 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
             onMakeQuizPage={makeQuizPage}
             onIndexed={(updated) => updated.forEach((u) => u.brain && mergeBrain(u.id, u.brain))}
           />
+          </ErrorBoundary>
         </div>
       </div>
+      {touring && (
+        <Tour
+          steps={notebookTour()}
+          onFinish={() => {
+            markTour("notebook");
+            setTouring(false);
+          }}
+          onSkip={() => {
+            markTour("all");
+            setTouring(false);
+          }}
+        />
+      )}
     </main>
   );
 }

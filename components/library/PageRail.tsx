@@ -23,7 +23,7 @@ export function PageRail({
   const current = pages.find((p) => p.id === currentId);
 
   return (
-    <aside className="chrome relative flex w-[132px] shrink-0 flex-col border-r border-rule bg-desk/70">
+    <aside data-tour="pages" className="chrome relative flex w-[132px] shrink-0 flex-col border-r border-rule bg-desk/70">
       <div className="scroll-y flex-1 space-y-3 px-3 py-3">
         {pages.map((p, i) => (
           <button key={p.id} onClick={() => onSelect(p.id)} className="block w-full text-center" aria-current={p.id === currentId}>

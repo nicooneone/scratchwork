@@ -84,10 +84,33 @@ export async function generateQuiz(settings: QuizSettings, opts: { mock?: boolea
   opts.onProgress?.("Writing questions…");
   const body: QuizRequest = { pages: contexts, mastery: masteryFromEvents(await allStruggles()), settings, exclude: opts.exclude };
   const res = await fetch(`/api/quiz${opts.mock ? "?mock=1" : ""}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const json = await res.json();
+  const json = await res.json().catch(() => null); // a crashed server returns HTML, not JSON
   opts.onProgress?.(null);
-  if (!res.ok) throw new Error(json.error ?? "Quiz is unavailable right now.");
-  return json as QuizQuestion[];
+  if (!res.ok) throw new Error(json?.error ?? "Quiz is unavailable right now.");
+  const qs = normalizeQuestions(json);
+  if (!qs.length) throw new Error("The quiz came back empty. Try again, or loosen the settings.");
+  return qs;
+}
+
+/** AI output is untrusted: keep only well-formed questions, with every field the UI reads. */
+export function normalizeQuestions(raw: unknown): QuizQuestion[] {
+  if (!Array.isArray(raw)) return [];
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const kinds = ["equation", "expression", "number"] as const;
+  return raw
+    .filter((q): q is Record<string, unknown> => !!q && typeof q === "object")
+    .map((q, i) => ({
+      id: str(q.id) || `q-${Date.now()}-${i}`,
+      prompt: str(q.prompt),
+      topic: str(q.topic) || "practice",
+      answer: str(q.answer),
+      answerKind: kinds.includes(q.answerKind as (typeof kinds)[number]) ? (q.answerKind as QuizQuestion["answerKind"]) : "expression",
+      sourcePageIds: Array.isArray(q.sourcePageIds) ? q.sourcePageIds.filter((x): x is string => typeof x === "string") : [],
+      difficulty: DIFFICULTIES.some((d) => d.id === q.difficulty) ? (q.difficulty as QuizDifficulty) : undefined,
+      style: STYLES.some((s) => s.id === q.style) ? (q.style as QuizStyle) : undefined,
+      hint: str(q.hint) || undefined,
+    }))
+    .filter((q) => q.prompt && q.answer);
 }
 
 export const quizTitle = (s: QuizSettings) =>

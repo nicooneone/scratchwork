@@ -40,6 +40,8 @@ export interface ToolbarProps {
   checking?: boolean;
   railOpen?: boolean;
   onToggleRail?(): void;
+  /** Replay the guided tour (⋯ menu). */
+  onTour?(): void;
 }
 
 export function Toolbar(p: ToolbarProps) {
@@ -103,6 +105,7 @@ export function Toolbar(p: ToolbarProps) {
           label={ts.tutorMode ? "Tutor on: checks your work as you write (tap to turn off)" : "Tutor off (tap to turn on)"}
           active={ts.tutorMode}
           onClick={() => onToolState({ ...ts, tutorMode: !ts.tutorMode })}
+          tour="tutor"
         >
           <span className="relative">
             <Icon.tutor />
@@ -114,14 +117,15 @@ export function Toolbar(p: ToolbarProps) {
           onDrawWithFinger={() => onToolState({ ...ts, drawWithFinger: !ts.drawWithFinger })}
           onCheck={p.onCheck}
           checking={p.checking}
+          onTour={p.onTour}
         />
-        <TBtn label="Ask RedLine" active={p.aiOpen} onClick={p.onToggleAI}>
+        <TBtn label="Ask RedLine" active={p.aiOpen} onClick={p.onToggleAI} tour="ai">
           <Icon.sparkle />
         </TBtn>
       </div>
 
       {/* bottom row: tools, colors, size, favorites */}
-      <div className="no-scrollbar flex h-14 items-center gap-1 overflow-x-auto px-2">
+      <div data-tour="tools" className="no-scrollbar flex h-14 items-center gap-1 overflow-x-auto px-2">
         {DRAW_TOOLS.map(({ tool, icon }) => (
           <TBtn key={tool} label={TOOL_PRESETS[tool].label} active={ts.tool === tool} onClick={() => pick(tool)}>
             {icon({})}
@@ -216,9 +220,10 @@ export function Toolbar(p: ToolbarProps) {
   );
 }
 
-function TBtn({ label, active, disabled, onClick, children }: { label: string; active?: boolean; disabled?: boolean; onClick(): void; children: ReactNode }) {
+function TBtn({ label, active, disabled, onClick, children, tour }: { label: string; active?: boolean; disabled?: boolean; onClick(): void; children: ReactNode; tour?: string }) {
   return (
     <button
+      data-tour={tour}
       aria-label={label}
       title={label}
       aria-pressed={active}
@@ -273,7 +278,7 @@ function FavoriteChip({ fav, active, onApply, onRemove }: { fav: Favorite; activ
 }
 
 /** "⋯": the settings you change once a session, kept off the toolbar. */
-function MoreMenu({ drawWithFinger, onDrawWithFinger, onCheck, checking }: { drawWithFinger: boolean; onDrawWithFinger(): void; onCheck?(): void; checking?: boolean }) {
+function MoreMenu({ drawWithFinger, onDrawWithFinger, onCheck, checking, onTour }: { drawWithFinger: boolean; onDrawWithFinger(): void; onCheck?(): void; checking?: boolean; onTour?(): void }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const dark = useTheme() === "dark";
@@ -292,7 +297,7 @@ function MoreMenu({ drawWithFinger, onDrawWithFinger, onCheck, checking }: { dra
   }, [open]);
 
   return (
-    <div ref={wrap} className="relative">
+    <div ref={wrap} className="relative" data-tour="more">
       <TBtn label="More" active={open} onClick={() => setOpen((o) => !o)}>
         <Icon.more />
       </TBtn>
@@ -312,6 +317,16 @@ function MoreMenu({ drawWithFinger, onDrawWithFinger, onCheck, checking }: { dra
           <MenuRow icon={<Icon.finger size={20} />} label="Draw with finger" on={drawWithFinger} onClick={onDrawWithFinger} />
           {/* The menu closes in the same update as the theme change, so it vanishes under the ink. */}
           <MenuRow icon={<ThemeIcon size={20} />} label="Dark mode" on={dark} onClick={(el) => switchTheme(el, () => setOpen(false))} />
+          {onTour && (
+            <MenuRow
+              icon={<Icon.sparkle size={20} />}
+              label="Show me around"
+              onClick={() => {
+                setOpen(false);
+                onTour();
+              }}
+            />
+          )}
         </div>
       )}
     </div>

@@ -54,8 +54,9 @@ export function QuizOverlay({
         {title}
       </text>
       {questions.map((q, i) => {
-        const b = q.answerBox!;
-        const lines = wrap(`${firstNumber + i}. ${q.prompt}`, 62);
+        const b = q.answerBox;
+        if (!b) return null;
+        const lines = wrap(`${firstNumber + i}. ${q.prompt ?? ""}`, 62);
         const hintOpen = shownHints.includes(q.id);
         const g = grades[q.id];
         return (
@@ -90,7 +91,7 @@ export function QuizOverlay({
             )}
             {revealed && (
               <text x={b.x + b.w - 16} y={b.y + b.h - 14} fontSize={24} textAnchor="end" fill="var(--ok)" className="font-sans" fontWeight={600}>
-                Answer: {q.answer.length > 40 ? q.answer.slice(0, 40) + "…" : q.answer}
+                Answer: {(q.answer ?? "").length > 40 ? q.answer.slice(0, 40) + "…" : q.answer}
               </text>
             )}
             {g === "error" && (
