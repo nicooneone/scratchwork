@@ -68,9 +68,10 @@ export interface LineBox {
   index: number; // 1-based, matches the "L1:" label printed in the exported PNG
   box: Box;
   strokeIds: string[];
+  column?: number; // 0 = leftmost; set when problems are written side by side (appended, B)
 }
 
-export type LineKind = "equation" | "expression" | "integral" | "derivative" | "text" | "other";
+export type LineKind = "equation" | "expression" | "integral" | "derivative" | "text" | "other" | "limit"; // "limit" appended (B)
 export type Verdict = "correct" | "error" | "unclear";
 
 /** What Gemini read on one handwritten line. Math is plain ASCII usable by mathjs. */
@@ -84,6 +85,7 @@ export interface ReadLine {
   expr?: string; // derivative lines
   lower?: string; // definite integrals
   upper?: string;
+  point?: string; // limit lines: the value x approaches, e.g. "0", "inf", "0+" (appended, B)
   readConfidence: number; // 0–1
   aiVerdict: Verdict;
   misconception?: string; // short kebab-case, e.g. "sign-error-distributing"

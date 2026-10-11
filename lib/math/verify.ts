@@ -1,20 +1,23 @@
 // Owner: B. Deterministic step checker: "Gemini reads, math verifies."
 //
 // How a line is judged (math wins whenever it can decide; otherwise "unclear" -> AI verdict, labeled "ai"):
-//  - equation lines: each line is compared with the LAST parsable equation line above it.
-//      F(x) = Π_j (lhs_j - rhs_j) over its clauses ("x = 2 or x = 3" -> (x-2)(x-3)).
-//      Two lines are equivalent iff F_b / F_a is the same nonzero constant at random points
-//      (multiplying both sides by k, or swapping sides, keeps an equation equivalent).
+//  - equations and inequalities (any number of variables, up to 3): each line is compared with the
+//      LAST relation line above it by relations.ts: proportional test, then real solution sets
+//      (catches lost solutions, allows squaring/clearing denominators with a note), and truth-value
+//      agreement for inequalities (catches a sign that should have flipped).
+//  - "a = b = c" on one line: every link must be equal.
 //  - expression lines starting with "=" are compared with the previous expression: a - b ≈ 0.
-//  - integral / derivative lines: see calculus.ts (numeric differentiation, Simpson's rule).
+//  - integral / derivative / limit lines: see calculus.ts (numeric differentiation, Simpson's rule, limits).
 //  - text / other: unclear.
 // An error is carried forward: later lines are compared to what the student actually wrote,
 // so only the FIRST wrong line is flagged, not every line after it.
 import type { CheckedLine, ReadLine } from "../types";
 import { checkCalculusLine } from "./calculus";
-import { Unclear, equivDiff, equivRatio, freeVars, parse, splitTopLevel, stripConstant, toFn, type Fn } from "./expr";
+import type { MathNode } from "mathjs";
+import { Unclear, freeVars, parse, splitTopLevel, stripConstant, toFn, type Fn } from "./expr";
+import { compareSteps, expressionsEqual, parseRelation, type Relation } from "./relations";
 
-export type LineVerdict = Pick<CheckedLine, "verdict" | "verifiedBy" | "note">;
+export type LineVerdict = Pick<CheckedLine, "verdict" | "verifiedBy" | "note"> & { misconception?: string };
 
 const UNCLEAR: LineVerdict = { verdict: "unclear", verifiedBy: "ai" };
 
@@ -43,90 +46,98 @@ export function parseEquation(text: string): ParsedEquation {
   return { F, v, clauses: fns };
 }
 
-function parseExpression(text: string): { f: Fn; v: string | null } {
-  const node = parse(stripConstant(text).expr);
-  const vars = freeVars(node);
-  if (vars.length > 1) throw new Unclear("more than one variable");
-  const v = vars[0] ?? null;
-  return { f: toFn(node, v ?? "x"), v };
-}
 
 /** Lines Gemini tags "equation" but that are really "= 2x + 6" continuations get treated as expressions. */
 const isContinuation = (text: string) => /^\s*=/.test(text);
 
 export function verifyLines(lines: ReadLine[]): LineVerdict[] {
-  let prevEq: ParsedEquation | null = null;
-  let prevExpr: { f: Fn; v: string | null } | null = null;
+  let prevRel: { rel: Relation; text: string } | null = null;
+  let prevExpr: MathNode | null = null;
   const carried: { integrand?: string; expr?: string } = {};
+  const ok = (note?: string): LineVerdict => ({ verdict: "correct", verifiedBy: "math", note });
+  const bad = (note: string, misconception?: string): LineVerdict => ({ verdict: "error", verifiedBy: "math", note, misconception });
 
   return lines.map((line) => {
     try {
-      // ---- calculus ----
-      if (line.kind === "integral" || line.kind === "derivative") {
+      const text = line.text.trim();
+
+      // ---- calculus: integrals, derivatives, limits ----
+      if (line.kind === "integral" || line.kind === "derivative" || line.kind === "limit") {
         if (line.integrand) carried.integrand = line.integrand;
         if (line.expr) carried.expr = line.expr;
         return checkCalculusLine(line, carried) ?? UNCLEAR;
       }
+      if (line.kind === "text" || !text) return UNCLEAR;
 
-      // ---- expression chains: "= 2x + 6" ----
-      if (line.kind === "expression" || (line.kind === "equation" && isContinuation(line.text))) {
-        const text = line.text.trim();
-        if (isContinuation(text)) {
-          const cur = parseExpression(text.replace(/^\s*=\s*/, ""));
-          const prev = prevExpr;
-          prevExpr = cur;
-          if (!prev) return UNCLEAR;
-          if (prev.v && cur.v && prev.v !== cur.v) return UNCLEAR;
-          const same = equivDiff(prev.f, cur.f);
-          if (same === null) return UNCLEAR;
-          return same ? { verdict: "correct", verifiedBy: "math" } : { verdict: "error", verifiedBy: "math", note: "this isn't equal to the line above" };
-        }
-        const sides = splitTopLevel(text, /^=/);
-        if (sides.length === 2) {
-          // "3(x+2) = 3x + 6": an identity the student is claiming.
-          const a = parseExpression(sides[0]), b = parseExpression(sides[1]);
-          prevExpr = b;
-          const same = equivDiff(a.f, b.f);
-          if (same === null) return UNCLEAR;
-          return same ? { verdict: "correct", verifiedBy: "math" } : { verdict: "error", verifiedBy: "math", note: "the two sides aren't equal" };
-        }
-        prevExpr = parseExpression(text);
-        return UNCLEAR; // a starting expression: nothing to compare yet
-      }
-
-      // ---- equations ----
-      if (line.kind === "equation") {
-        const cur = parseEquation(line.text);
-        if (cur.v === null) {
-          // Pure arithmetic like "3*4 = 12": check it directly, don't chain on it.
-          if (cur.clauses.length !== 1) return UNCLEAR;
-          const { lhs, rhs } = cur.clauses[0];
-          const a = lhs(0), b = rhs(0);
-          if (!Number.isFinite(a) || !Number.isFinite(b)) return UNCLEAR;
-          // "0 = 0" style identities after solving: can't tell if that's right without context.
-          if (prevEq) return UNCLEAR;
-          return Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a))
-            ? { verdict: "correct", verifiedBy: "math" }
-            : { verdict: "error", verifiedBy: "math", note: "the arithmetic doesn't work out" };
-        }
-        const prev = prevEq;
-        prevEq = cur;
-        if (!prev) return UNCLEAR; // the first equation is the problem itself
-        if (prev.v !== cur.v) return UNCLEAR;
-        const same = equivRatio(prev.F, cur.F);
+      // ---- expression chains: "= 2x + 6" continues the expression above ----
+      if (isContinuation(text) && (line.kind === "expression" || line.kind === "equation" || line.kind === "other")) {
+        const cur = parseNode(stripConstant(text.replace(/^\s*=\s*/, "")).expr);
+        const prev = prevExpr;
+        prevExpr = cur;
+        if (!prev) return UNCLEAR;
+        const same = expressionsEqual(prev, cur);
         if (same === null) return UNCLEAR;
-        return same
-          ? { verdict: "correct", verifiedBy: "math" }
-          : { verdict: "error", verifiedBy: "math", note: "this line has different solutions than the line above" };
+        return same ? ok() : bad("this isn't equal to the line above", "simplification-error");
       }
 
-      return UNCLEAR;
+      const hasRelation = /[<>≤≥]/.test(text) || (/=/.test(text) && line.kind !== "expression");
+      // "a = b = c" written on one line: every link in the chain must be equal.
+      const sides = splitTopLevel(text, /^=/);
+      const isList = splitTopLevel(text, /^(\s+or\s+|,|;)/i).length > 1; // "x = 2 or x = 3" is a list, not a chain
+      if (!/[<>≤≥]/.test(text) && sides.length >= 3 && !isList) {
+        const nodes = sides.map((x) => parseNode(stripConstant(x).expr));
+        prevExpr = nodes[nodes.length - 1];
+        for (let i = 1; i < nodes.length; i++) {
+          const same = expressionsEqual(nodes[i - 1], nodes[i]);
+          if (same === null) return UNCLEAR;
+          if (!same) return bad(`step ${i} of this line isn't equal to the one before it`, "simplification-error");
+        }
+        return ok();
+      }
+
+      // ---- bare expression: start of a chain ----
+      if (!hasRelation) {
+        if (sides.length === 2) {
+          // "3(x+2) = 3x + 6" tagged as an expression: an identity the student is claiming.
+          const a = parseNode(stripConstant(sides[0]).expr), b = parseNode(stripConstant(sides[1]).expr);
+          prevExpr = b;
+          const same = expressionsEqual(a, b);
+          if (same === null) return UNCLEAR;
+          return same ? ok() : bad("the two sides aren't equal", "simplification-error");
+        }
+        if (line.kind === "expression" || line.kind === "other") prevExpr = parseNode(stripConstant(text).expr);
+        return UNCLEAR; // nothing to compare yet
+      }
+
+      // ---- equations and inequalities ----
+      const rel = parseRelation(text);
+      if (!rel.vars.length) {
+        // Pure arithmetic like "3*4 = 12" or "7 > 2": check it directly, don't chain on it.
+        if (prevRel && rel.kind === "equation") return UNCLEAR; // "0 = 0" after solving: needs context
+        const t = rel.clauses.every((c) => {
+          const a = c.lhs({}), b = c.rhs({});
+          if (!Number.isFinite(a) || !Number.isFinite(b)) throw new Unclear("undefined");
+          const d = a - b, tol = 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+          return c.op === "=" ? Math.abs(d) <= tol : c.op === "<" ? d < -tol : c.op === ">" ? d > tol : c.op === "<=" ? d <= tol : d >= -tol;
+        });
+        return t ? ok() : bad("the arithmetic doesn't work out", "arithmetic-slip");
+      }
+      const prev = prevRel;
+      prevRel = { rel, text };
+      if (!prev) return UNCLEAR; // the first line is the problem itself
+      const step = compareSteps(prev.rel, rel, text);
+      if (step.verdict === "unclear") return UNCLEAR;
+      return step.verdict === "correct" ? ok(step.note) : bad(step.note ?? "this line doesn't follow from the line above", step.misconception);
     } catch {
-      // Unclear (unparsable, two variables, ±, ...) or any unexpected math error:
+      // Unclear (unparsable, too many variables, ±, ...) or any unexpected math error:
       // never crash a check, just let the AI verdict stand.
       return UNCLEAR;
     }
   });
+}
+
+function parseNode(src: string): MathNode {
+  return parse(src);
 }
 
 /** Index (ReadLine.index) of the first line the math engine or AI marked wrong, or null. */

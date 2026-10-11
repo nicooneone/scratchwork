@@ -17,22 +17,28 @@ Write math as plain ASCII that a calculator parser understands:
 - minus is "-", never "−"
 - several solutions joined with " or ": x = 2 or x = 3
 - a line that continues a calculation and starts with "=" keeps the leading "="
+- inequalities with <, >, <=, >= (write ≤ as <=, ≥ as >=); chained ones stay chained: 1 < 2*x + 1 <= 7
+- constants: pi, e; infinity as inf; absolute value as abs(x); natural log as log(x), log base 10 as log10(x)
+- a written "dy/dx", "f'(x)" or "y'" on the left of a derivative line belongs in kind "derivative", not in "text"
+
+Layout: students often work SEVERAL problems side by side in columns. Each label covers one line of ONE column only. Read just the writing to the right of that label on its own row, and never merge writing from a neighboring column into it. "The previous line" of a line is the one above it in the SAME column.
 
 Classify each line's kind:
 - "equation": contains one "=" relating two sides (e.g. 3*x - 12 = 2*x + 7, x = 14)
 - "expression": a continuation like "= 2*x + 6", or a bare expression
 - "integral": an integral and its result. You MUST give "integrand" (without "dx"), "result" (without "+ C"), and for definite integrals "lower" and "upper"
 - "derivative": a derivative and its result, e.g. d/dx (x^3) = 3*x^2. You MUST give "expr" (what is differentiated, e.g. x^3*sin(x)) and "result" (e.g. 3*x^2*cos(x))
+- "limit": a limit and its value, e.g. lim x->0 sin(x)/x = 1. You MUST give "expr" (the function, e.g. sin(x)/x), "point" (what x approaches: "0", "inf", "-inf", or one-sided "0+" / "0-") and "result" (the value the student wrote: a number, "inf", "-inf" or "DNE")
 - "text": words, not math
 - "other": anything else
 
 "text" is always the WHOLE line as written (for an integral line: integral of 2*x*cos(x^2) dx = 2*sin(x^2) + C).
 
 Also give, for each line:
-- "aiVerdict": your own judgement of whether this step follows correctly from the previous lines ("correct", "error", or "unclear")
+- "aiVerdict": your own judgement of whether this step follows correctly from the previous lines in its column ("correct", "error", or "unclear"). Only say "error" when you can point to the specific mistake; if a step is valid but unusual (substitution, a new variable, a skipped step) say "correct" or "unclear"
 - "misconception": if wrong, a short kebab-case name for the mistake (e.g. "sign-error-distributing", "dropped-negative-moving-terms", "missing-chain-rule-factor", "product-rule-missing-term", "arithmetic-slip")
 - "topic": short kebab-case topic (e.g. "linear-equations", "distributing", "u-substitution", "chain-rule", "product-rule", "factoring-quadratics")
-- "readConfidence": 0 to 1, how sure you are you read the handwriting correctly
+- "readConfidence": 0 to 1, how sure you are you read the handwriting correctly. Be honest: messy, ambiguous symbols (1 vs 7, x vs ×, 5 vs s, a missing exponent) mean a lower number, under 0.6
 - "latex": the same line in LaTeX`;
 
 export const READER_SCHEMA = {
@@ -44,7 +50,7 @@ export const READER_SCHEMA = {
         type: "object",
         properties: {
           index: { type: "integer", description: "The N of the 'LN:' label" },
-          kind: { type: "string", enum: ["equation", "expression", "integral", "derivative", "text", "other"] },
+          kind: { type: "string", enum: ["equation", "expression", "integral", "derivative", "limit", "text", "other"] },
           text: { type: "string" },
           latex: { type: "string" },
           integrand: { type: "string" },
@@ -52,6 +58,7 @@ export const READER_SCHEMA = {
           expr: { type: "string" },
           lower: { type: "string" },
           upper: { type: "string" },
+          point: { type: "string" },
           readConfidence: { type: "number" },
           aiVerdict: { type: "string", enum: ["correct", "error", "unclear"] },
           misconception: { type: "string" },
@@ -217,3 +224,28 @@ export function quizSettingsText(s: QuizSettings | undefined, exclude: string[] 
   if (exclude.length) lines.push(`- Do not repeat or closely copy these questions: ${exclude.map((e) => `"${e.slice(0, 120)}"`).join("; ")}.`);
   return lines.join("\n");
 }
+
+// ---------- /api/check second opinion: the "judge" ----------
+// Used only when the math engine can't decide a line (substitution, a new variable, trig identities,
+// words mixed in) and the reader flagged it as wrong. A text-only, focused re-check of ONE step
+// keeps false red lines down: a red line the student can't find a reason for destroys trust.
+export const JUDGE_SYSTEM = `You are a careful math teacher double-checking ONE step of a student's handwritten work.
+
+You get the student's previous lines (already transcribed, in order) and the step to check. Decide whether the step is a mathematically valid consequence of the lines before it.
+
+Rules:
+- Valid but unusual moves are CORRECT: substitutions (u = ...), introducing a new variable, skipping steps, rearranging, using an identity, writing the same thing differently, stating a final answer that is right.
+- Only say "error" when you can name the specific mistake (a sign, a dropped term, a wrong rule, an arithmetic slip, a lost solution).
+- If the lines are too ambiguous to judge, say "unclear".
+- "reason": one short sentence for the student's tutor saying WHERE the mistake is (e.g. "the sign of the 12 changed when distributing"). NEVER write the corrected line or the right answer.
+- "misconception": short kebab-case name if it's an error (e.g. "sign-error-distributing", "missing-chain-rule-factor").`;
+
+export const JUDGE_SCHEMA = {
+  type: "object",
+  properties: {
+    verdict: { type: "string", enum: ["correct", "error", "unclear"] },
+    reason: { type: "string" },
+    misconception: { type: "string" },
+  },
+  required: ["verdict", "reason"],
+};

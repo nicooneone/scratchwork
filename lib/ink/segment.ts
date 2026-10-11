@@ -8,6 +8,13 @@
 //    x-range with a small gap (< 0.35 x typical height, e.g. a fraction's numerator).
 //    Real lines written close together have bigger gaps, so they stay apart.
 // 4. Pad boxes by 8 units. Index is 1-based to match the "L1:" labels in the exported PNG.
+//
+// Side-by-side problems (columns): before step 2 runs for real, a first rough row pass looks for
+// big horizontal gaps inside rows (> max(2.5 x line height, 90 units)). A gap that lines up across
+// at least two rows (or one very wide gap, > max(4 H, 160)) is a column gutter. Every stroke is
+// assigned to a column by its center, then steps 2-3 run inside each column separately, so a line
+// on the left never swallows the line next to it on the right. Lines come out sorted by column,
+// then top to bottom, with LineBox.column set (0 = leftmost).
 import type { Box, LineBox, Stroke } from "../types";
 
 const PAD = 8;
@@ -51,16 +58,90 @@ function typicalHeight(cs: Cluster[]): number {
   return top[Math.floor((top.length - 1) / 2)] ?? MIN_H;
 }
 
+type Item = { id: string; b: Box };
+
+/** Greedy clustering by vertical overlap (items sorted by vertical center). */
+function roughRows(items: Item[]): Cluster[] {
+  const clusters: Cluster[] = [];
+  for (const { id, b } of items) {
+    const cur = clusters[clusters.length - 1];
+    if (cur && overlap(cur.top, cur.bottom, b.y, b.y + b.h) >= 0.4 * Math.min(height(cur), b.h)) {
+      absorb(cur, { top: b.y, bottom: b.y + b.h, left: b.x, right: b.x + b.w, ids: [id] });
+    } else {
+      clusters.push({ top: b.y, bottom: b.y + b.h, left: b.x, right: b.x + b.w, ids: [id] });
+    }
+  }
+  return clusters;
+}
+
+/** x positions of column gutters (sorted), found from big horizontal gaps that line up across rows. */
+export function columnSeparators(items: Item[]): number[] {
+  const rows = roughRows(items);
+  const H = typicalHeight(rows);
+  const G = Math.max(2.5 * H, 90), BIG = Math.max(4 * H, 160);
+  const byId = new Map(items.map((it) => [it.id, it.b]));
+  const gaps: { l: number; r: number }[] = [];
+  for (const row of rows) {
+    const bs = row.ids.map((id) => byId.get(id)!).sort((a, b) => a.x - b.x);
+    let right = bs[0].x + bs[0].w;
+    for (const b of bs.slice(1)) {
+      if (b.x - right > G) gaps.push({ l: right, r: b.x });
+      right = Math.max(right, b.x + b.w);
+    }
+  }
+  // Group gaps that overlap horizontally; each group with enough support becomes one gutter.
+  gaps.sort((a, b) => a.l - b.l);
+  const groups: { l: number; r: number; lo: number; hi: number; n: number; widest: number }[] = [];
+  for (const g of gaps) {
+    const grp = groups.find((x) => overlap(x.l, x.r, g.l, g.r) > 0);
+    if (grp) {
+      grp.l = Math.max(grp.l, g.l); // intersection: where every row's gap agrees
+      grp.r = Math.min(grp.r, g.r);
+      grp.lo = Math.min(grp.lo, g.l);
+      grp.hi = Math.max(grp.hi, g.r);
+      grp.n++;
+      grp.widest = Math.max(grp.widest, g.r - g.l);
+    } else groups.push({ l: g.l, r: g.r, lo: g.l, hi: g.r, n: 1, widest: g.r - g.l });
+  }
+  return groups
+    .filter((g) => g.n >= 2 || g.widest > BIG)
+    .map((g) => (g.l < g.r ? (g.l + g.r) / 2 : (g.lo + g.hi) / 2))
+    .sort((a, b) => a - b);
+}
+
 export function segmentLines(strokes: Stroke[]): LineBox[] {
   const ink = strokes.filter(
     (s) => s.points.length > 0 && s.tool !== "highlighter" && s.tool !== "lasso" && !s.tool.startsWith("eraser"),
   );
   if (ink.length === 0) return [];
 
-  const items = ink
+  const items: Item[] = ink
     .map((s) => ({ id: s.id, b: bounds(s) }))
     .sort((a, b) => a.b.y + a.b.h / 2 - (b.b.y + b.b.h / 2));
 
+  const seps = columnSeparators(items);
+  const columns: Item[][] = Array.from({ length: seps.length + 1 }, () => []);
+  for (const it of items) {
+    const cx = it.b.x + it.b.w / 2;
+    columns[seps.filter((x) => x < cx).length].push(it);
+  }
+  const out: LineBox[] = [];
+  columns.forEach((col, c) => {
+    if (!col.length) return;
+    for (const cl of segmentColumn(col)) {
+      out.push({
+        index: out.length + 1,
+        box: { x: cl.left - PAD, y: cl.top - PAD, w: cl.right - cl.left + 2 * PAD, h: cl.bottom - cl.top + 2 * PAD },
+        strokeIds: cl.ids,
+        ...(seps.length ? { column: columns.slice(0, c).filter((x) => x.length).length } : {}),
+      });
+    }
+  });
+  return out;
+}
+
+/** Steps 2-3 for one column of strokes. Returns clusters sorted top to bottom. */
+function segmentColumn(items: Item[]): Cluster[] {
   // Greedy clustering by vertical overlap.
   const clusters: Cluster[] = [];
   for (const { id, b } of items) {
@@ -102,11 +183,5 @@ export function segmentLines(strokes: Stroke[]): LineBox[] {
     }
   }
 
-  return clusters
-    .sort((a, b) => a.top - b.top)
-    .map((c, i) => ({
-      index: i + 1,
-      box: { x: c.left - PAD, y: c.top - PAD, w: c.right - c.left + 2 * PAD, h: c.bottom - c.top + 2 * PAD },
-      strokeIds: c.ids,
-    }));
+  return clusters.sort((a, b) => a.top - b.top);
 }

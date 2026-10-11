@@ -4,7 +4,13 @@
 import type { LineBox, Stroke } from "../types";
 
 
+/** Blocks for every column (side-by-side problems never share a block), left column first. */
 export function groupBlocks(lines: LineBox[]): LineBox[][] {
+  const cols = [...new Set(lines.map((l) => l.column ?? 0))].sort((a, b) => a - b);
+  return cols.flatMap((c) => groupColumn(lines.filter((l) => (l.column ?? 0) === c)));
+}
+
+function groupColumn(lines: LineBox[]): LineBox[][] {
   if (lines.length === 0) return [];
   const sorted = [...lines].sort((a, b) => a.box.y - b.box.y);
   const gaps = sorted.slice(1).map((l, i) => l.box.y - (sorted[i].box.y + sorted[i].box.h));

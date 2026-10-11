@@ -33,7 +33,7 @@ describe("algebra: mistakes fail", () => {
 
 describe("algebra: unclear instead of guessing", () => {
   it("0 = 0", () => expect(step("x + 1 = x + 1", "0 = 0").verdict).toBe("unclear"));
-  it("two variables", () => expect(step("y = 2x + 1", "y - 1 = 2x").verdict).toBe("unclear"));
+  it("a new variable appears (substitution)", () => expect(step("x^2 + 2x = 3", "u + 2x = 3").verdict).toBe("unclear"));
   it("plus-minus", () => expect(step("x^2 = 4", "x = ±2").verdict).toBe("unclear"));
   it("garbage", () => expect(step("2x = 6", "x = )(").verdict).toBe("unclear"));
   it("text lines", () => expect(verifyLines([L("Notes on chapter 3", "text")])[0].verdict).toBe("unclear"));
