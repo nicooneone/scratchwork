@@ -117,18 +117,18 @@ body {
 html.ink-retract::view-transition-old(root) { z-index: 2; }
 html.ink-retract::view-transition-new(root) { z-index: 1; }
 
-/* Fallback for browsers without View Transitions: a quick cross-fade of the chrome. */
+/* Fallback for browsers without View Transitions: a slow, eased cross-fade of the chrome. */
 html.theme-fade,
 html.theme-fade *,
 html.theme-fade *::before,
 html.theme-fade *::after {
-  transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease, fill 0.45s ease, stroke 0.45s ease !important;
+  transition: background-color 0.9s cubic-bezier(.45, 0, .55, 1), color 0.9s cubic-bezier(.45, 0, .55, 1), border-color 0.9s cubic-bezier(.45, 0, .55, 1), fill 0.9s cubic-bezier(.45, 0, .55, 1), stroke 0.9s cubic-bezier(.45, 0, .55, 1) !important;
 }
 
 /* Sun ↔ moon: a dark disc slides over the sun to cut the crescent while the rays pull in. */
-.theme-icon .rays { transform-origin: 12px 12px; transition: transform 0.5s cubic-bezier(.5, -0.4, .3, 1.4), opacity 0.3s ease; }
-.theme-icon .core { transform-origin: 12px 12px; transition: transform 0.5s cubic-bezier(.5, -0.4, .3, 1.4); }
-.theme-icon .bite { transition: transform 0.5s cubic-bezier(.5, -0.4, .3, 1.4); }
+.theme-icon .rays { transform-origin: 12px 12px; transition: transform 0.9s cubic-bezier(.45, 0, .2, 1.15), opacity 0.6s ease; }
+.theme-icon .core { transform-origin: 12px 12px; transition: transform 0.9s cubic-bezier(.45, 0, .2, 1.15); }
+.theme-icon .bite { transition: transform 0.9s cubic-bezier(.45, 0, .2, 1.15); }
 .theme-icon .rays { transform: rotate(-30deg) scale(0.4); opacity: 0; }
 .theme-icon .core { transform: scale(1.35); }
 .theme-icon .bite { transform: translate(0, 0); }

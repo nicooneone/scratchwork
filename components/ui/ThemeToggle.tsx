@@ -12,10 +12,12 @@ import { flushSync } from "react-dom";
 import { applyTheme, getTheme, type Theme } from "@/lib/theme";
 import { useTheme } from "@/lib/useTheme";
 
-const SPILL_MS = 950;
-const RETRACT_MS = 760;
-const FRAMES = 16;
-const POINTS = 60;
+// Slow and smooth: ~1.7 s each way, and enough keyframes that the browser's linear interpolation
+// between blob shapes reads as one continuous motion rather than steps.
+const SPILL_MS = 1700;
+const RETRACT_MS = 1500;
+const FRAMES = 40;
+const POINTS = 72;
 
 let busy = false;
 
@@ -41,7 +43,7 @@ export function switchTheme(el: HTMLElement, alongside?: () => void) {
   if (!startVT) {
     root.classList.add("theme-fade");
     change();
-    setTimeout(() => root.classList.remove("theme-fade"), 500);
+    setTimeout(() => root.classList.remove("theme-fade"), 1000);
     return;
   }
 
@@ -125,21 +127,23 @@ function inkFrames(cx: number, cy: number, mode: "spill" | "retract"): string[] 
     const t = k / (FRAMES - 1);
     let r: number;
     let amp: number;
+    // Both directions ease in and out (sine), so the ink starts gently, glides, and settles.
+    const e = 0.5 - 0.5 * Math.cos(Math.PI * t);
     if (mode === "spill") {
-      r = reach * 1.18 * (1 - (1 - t) ** 3); // ease-out cubic
-      amp = r * 0.2 * (1 - t) ** 0.7; // big wobble while it spreads, none at the end
+      r = reach * 1.15 * e;
+      amp = r * 0.13 * Math.sin(Math.PI * Math.min(1, t * 1.15)) ** 1.5; // soft wobble mid-spread, none at the ends
     } else {
-      const e = t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2; // ease-in-out cubic
       r = reach * 1.02 * (1 - e);
-      amp = r * 0.22 * Math.sqrt(t); // none at the start (full cover), wobbles as it drains
+      amp = r * 0.14 * Math.sin(Math.PI * t) ** 1.5; // none while it covers the screen, soft as it drains
     }
     const pts: string[] = [];
     for (let i = 0; i < POINTS; i++) {
       const a = (i / POINTS) * Math.PI * 2;
       const wave =
-        0.5 * Math.sin(3 * a + p[0] + 2.2 * t) +
-        0.32 * Math.sin(5 * a + p[1] - 3.1 * t) +
-        0.18 * Math.sin(9 * a + p[2] + 4.7 * t);
+        // Slower drift and fewer high-frequency ripples: a calm, liquid edge instead of a jittery one.
+        0.6 * Math.sin(3 * a + p[0] + 1.4 * t) +
+        0.3 * Math.sin(5 * a + p[1] - 1.8 * t) +
+        0.1 * Math.sin(8 * a + p[2] + 2.4 * t);
       const rr = Math.max(0, r + amp * wave);
       pts.push(`${(cx + rr * Math.cos(a)).toFixed(1)}px ${(cy + rr * Math.sin(a)).toFixed(1)}px`);
     }
