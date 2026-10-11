@@ -4,6 +4,8 @@
 
 Write math with an Apple Pencil like you would in any notes app. Pause, and RedLine reads your handwriting, proves every step with a math engine, and draws a red line under the first step that goes wrong. Tap "Look here" for a Socratic hint that points you at the mistake without giving away the fix.
 
+**Try it:** [scratchwork-psi.vercel.app](https://scratchwork-psi.vercel.app) (best on an iPad with Apple Pencil: Safari, Share, Add to Home Screen; on a computer, turn on "Draw with finger" in the ⋯ menu to draw with the mouse).
+
 ## What it does
 
 - **Live Check.** Checking starts when you pause or begin the next line. Every line gets a verdict, labeled **verified by math** or **AI judgement**, so you always know which one you can trust.
@@ -60,7 +62,7 @@ npm run dev                  # http://localhost:3000
 npm test                     # 140 unit tests: math engine, segmentation, quiz grading
 ```
 
-On an iPad, open the deployed URL in Safari, then Share, **Add to Home Screen**.
+On an iPad, open [scratchwork-psi.vercel.app](https://scratchwork-psi.vercel.app) in Safari, then Share, **Add to Home Screen**.
 
 Every API route accepts `?mock=1` and returns sample data, so the whole app works without API keys or network (add it to a notebook's URL).
 
