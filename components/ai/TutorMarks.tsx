@@ -3,7 +3,18 @@
 //  - a red pen line drawn under the first wrong line, plus a margin tab to tap
 //  - faint green ticks on correct lines, a gray "?" on lines the tutor couldn't read or judge
 // Tappable elements carry data-ui so PageCanvas doesn't treat the tap as ink.
+import { useEffect, useRef, useState } from "react";
 import type { CheckResult, CheckedLine } from "@/lib/types";
+
+// "Look here" tab, in page units. Its width follows the measured label, so it never overflows
+// whatever font the handwriting face resolves to.
+const TAB_H = 52;
+const NOTCH = 22; // the point that aims at the line
+const PAD_L = 14;
+const GAP = 10;
+const ICON = 26; // chevron disc: says "this opens something"
+const PAD_R = 10;
+const LABEL = "Look here";
 
 export function TutorMarks({ result, onOpen }: { result: CheckResult; onOpen(line: CheckedLine): void }) {
   const err = result.lines.find((l) => l.index === result.firstErrorIndex);
@@ -25,29 +36,57 @@ export function TutorMarks({ result, onOpen }: { result: CheckResult; onOpen(lin
 
 function ErrorMark({ line, onOpen }: { line: CheckedLine; onOpen(): void }) {
   const { x, y, w, h } = line.box;
+  const labelRef = useRef<SVGTextElement>(null);
+  const [labelW, setLabelW] = useState(124); // estimate until the font has loaded and we can measure
+  useEffect(() => {
+    let live = true;
+    const measure = () => {
+      const m = labelRef.current?.getComputedTextLength();
+      if (live && m) setLabelW(Math.ceil(m));
+    };
+    (document.fonts?.ready ?? Promise.resolve()).then(measure).catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+  const bodyW = PAD_L + labelW + GAP + ICON + PAD_R;
+  const tabW = NOTCH + bodyW;
   // A red pen line under the wrong expression (the box has ~8 units of padding below the ink).
   const uy = y + h + 2;
   const d = wobblyUnderline(x + 4, x + w - 4, uy, line.index);
   const len = Math.round(w * 1.15 + 40);
   // Margin tab sits to the right of the line; if the line runs too far right, it goes just below
   // the underline's right end instead, so it never covers the student's writing.
-  const fitsRight = x + w + 30 + 150 <= 1000;
-  const tabX = fitsRight ? x + w + 30 : Math.max(20, Math.min(x + w - 150, 1000 - 160));
-  const tabY = fitsRight ? y + h / 2 - 26 : uy + 14;
+  const fitsRight = x + w + 30 + tabW <= 1000;
+  const tabX = fitsRight ? x + w + 30 : Math.max(20, Math.min(x + w - tabW, 1000 - tabW - 10));
+  const tabY = fitsRight ? y + h / 2 - TAB_H / 2 : uy + 14;
+  const cy = tabY + TAB_H / 2;
+  const bx = tabX + NOTCH; // body's left edge
+  const r = 14;
+  const iconX = bx + PAD_L + labelW + GAP + ICON / 2;
 
   return (
     <g>
       <path d={d} fill="none" stroke="var(--mark)" strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" className="draw-in" style={{ ["--len" as string]: len }} />
-      <g data-ui="" style={{ pointerEvents: "auto", cursor: "pointer" }}
+      <g data-ui="" className="tutor-tab" style={{ pointerEvents: "auto", cursor: "pointer" }}
         // PageCanvas cancels touch events (so Safari can't zoom/select), which also kills "click" on iPad.
         // Pointer events still arrive, so open on pointerup.
         onPointerUp={onOpen}
         role="button" aria-label={`Hint for line ${line.index}`}>
-        <rect x={tabX - 6} y={tabY - 6} width={150} height={64} fill="transparent" />
-        <path d={`M ${tabX} ${tabY + 26} q 10 -26 34 -24 h 92 q 12 0 12 12 v 26 q 0 12 -12 12 h -92 q -24 2 -34 -26 z`} fill="var(--paper)" stroke="var(--mark)" strokeWidth={2.5} />
-        <text x={tabX + 44} y={tabY + 36} fontSize={30} className="font-hand" fontWeight={700} fill="var(--mark)">
-          Look here
+        {/* generous hit area: a fingertip, not a pen tip */}
+        <rect x={tabX - 8} y={tabY - 10} width={tabW + 16} height={TAB_H + 20} fill="transparent" />
+        <path
+          className="tutor-tab-body"
+          d={`M ${tabX} ${cy} Q ${tabX + 6} ${tabY + 6} ${bx} ${tabY} H ${bx + bodyW - r} Q ${bx + bodyW} ${tabY} ${bx + bodyW} ${tabY + r} V ${tabY + TAB_H - r} Q ${bx + bodyW} ${tabY + TAB_H} ${bx + bodyW - r} ${tabY + TAB_H} H ${bx} Q ${tabX + 6} ${tabY + TAB_H - 6} ${tabX} ${cy} Z`}
+          fill="var(--mark)"
+        />
+        <text ref={labelRef} x={bx + PAD_L} y={cy + 10} fontSize={30} className="font-hand" fontWeight={700} fill="var(--paper)">
+          {LABEL}
         </text>
+        <g className="tutor-tab-chevron">
+          <circle cx={iconX} cy={cy} r={ICON / 2} fill="var(--paper)" opacity={0.22} />
+          <path d={`M ${iconX - 3} ${cy - 6.5} l 6.5 6.5 l -6.5 6.5`} fill="none" stroke="var(--paper)" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+        </g>
       </g>
     </g>
   );

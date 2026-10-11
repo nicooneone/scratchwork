@@ -84,6 +84,17 @@ body {
 @keyframes draw-in { to { stroke-dashoffset: 0; } }
 
 .fade-tick { animation: fade-tick 3.2s ease-out forwards; }
+
+/* "Look here" tab: slides out of the margin once the underline has drawn, then the chevron
+   nudges twice toward the hint so it reads as something to tap. Dims while pressed. */
+.tutor-tab { animation: tab-in 0.35s cubic-bezier(.2, .8, .2, 1) 0.45s both; }
+.tutor-tab-chevron { animation: nudge 0.5s ease-in-out 1.1s 2; }
+.tutor-tab:active .tutor-tab-body { opacity: 0.85; }
+@keyframes tab-in { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+@keyframes nudge { 50% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) {
+  .tutor-tab, .tutor-tab-chevron { animation: none; }
+}
 @keyframes fade-tick { 0%, 70% { opacity: 1; } 100% { opacity: 0.25; } }
 
 @keyframes sheet-in { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
