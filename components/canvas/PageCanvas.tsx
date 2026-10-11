@@ -13,7 +13,8 @@ import { History } from "@/lib/ink/history";
 import { hitsStroke } from "@/lib/ink/hit";
 import { clear, drawStroke, redrawAll } from "@/lib/ink/render";
 import { templateStyle } from "@/lib/ink/templates";
-import { savesStroke } from "@/lib/ink/tools";
+import { highlighterOpacity, savesStroke } from "@/lib/ink/tools";
+import { getTheme, subscribeTheme } from "@/lib/theme";
 import { uid } from "@/lib/ids";
 import { PAGE_H, PAGE_W, type Box, type Page, type Pt, type Stroke, type ToolState } from "@/lib/types";
 
@@ -39,7 +40,6 @@ const GUTTER = 12; // px around the page
 const MAX_ZOOM = 2; // higher zoom blurs and would blow Safari's canvas memory limit on the A12
 const MAX_CANVAS_PIXELS = 4_500_000; // per canvas
 const PALM_GRACE_MS = 300;
-const HIGHLIGHTER_OPACITY = 0.35;
 
 interface View {
   fitW: number; // page width in CSS px at zoom 1
@@ -158,6 +158,18 @@ export default function PageCanvas({
     };
   }, [layout]);
 
+  // ---------- theme ----------
+  // Synchronous on purpose: the theme switch animation snapshots the screen right after the change,
+  // so the ink must already be in its new colors (adaptive ink: navy ↔ white …).
+  useEffect(
+    () =>
+      subscribeTheme(() => {
+        clear(ctx(liveRef.current)!);
+        redraw();
+      }),
+    [redraw],
+  );
+
   // ---------- page switches / external stroke changes ----------
   useEffect(() => {
     strokesRef.current = page.strokes;
@@ -226,7 +238,7 @@ export default function PageCanvas({
         const s = d.stroke;
         if (s.tool === "highlighter") {
           c.save();
-          c.globalAlpha = HIGHLIGHTER_OPACITY;
+          c.globalAlpha = highlighterOpacity(getTheme());
           drawStroke(c, s, { live: true });
           c.restore();
         } else if (s.tool === "eraser-precise") {
@@ -540,7 +552,7 @@ export default function PageCanvas({
           className="absolute inset-0 rounded-sm bg-paper shadow-[0_1px_4px_rgba(29,42,68,.2)]"
           style={templateStyle(page.template)}
         />
-        <canvas ref={hlRef} className={canvasClass} style={{ opacity: HIGHLIGHTER_OPACITY }} />
+        <canvas ref={hlRef} className={canvasClass} style={{ opacity: "var(--hl-opacity)" }} />
         <canvas ref={inkRef} className={canvasClass} />
         <canvas ref={liveRef} className={canvasClass} />
         <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${PAGE_W} ${PAGE_H}`}>
@@ -555,10 +567,11 @@ function eraserCursor(c: CanvasRenderingContext2D, x: number, y: number, r: numb
   c.save();
   c.beginPath();
   c.arc(x, y, r, 0, Math.PI * 2);
-  c.fillStyle = "rgba(255,255,255,0.6)";
+  const dark = getTheme() === "dark";
+  c.fillStyle = dark ? "rgba(14,20,32,0.55)" : "rgba(255,255,255,0.6)";
   c.fill();
   c.lineWidth = 1.5;
-  c.strokeStyle = "#5a6680";
+  c.strokeStyle = dark ? "#97a3ba" : "#5a6680";
   c.stroke();
   c.restore();
 }
@@ -570,11 +583,12 @@ function lassoPath(c: CanvasRenderingContext2D, pts: [number, number][]) {
   c.moveTo(pts[0][0], pts[0][1]);
   for (const [x, y] of pts.slice(1)) c.lineTo(x, y);
   c.closePath();
-  c.fillStyle = "rgba(36,86,201,0.06)";
+  const dark = getTheme() === "dark";
+  c.fillStyle = dark ? "rgba(122,165,255,0.1)" : "rgba(36,86,201,0.06)";
   c.fill();
   c.setLineDash([8, 6]);
   c.lineWidth = 2;
-  c.strokeStyle = "#2456c9";
+  c.strokeStyle = dark ? "#7aa5ff" : "#2456c9";
   c.stroke();
   c.restore();
 }

@@ -4,7 +4,7 @@
 // Live Check (Tutor mode): after a 2.5 s pause following a stroke, the page's lines are segmented,
 // exported with L1:/L2: labels and sent to /api/check; Gemini reads, lib/math verifies.
 // (Step 5 refines this loop: smaller regions, demo-mode replay, error states.)
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PageCanvas, { type PageCanvasHandle } from "@/components/canvas/PageCanvas";
 import { addPage, db, getNotebook, getPages, logStruggle, savePage } from "@/lib/db";
@@ -12,7 +12,8 @@ import { renderToPng } from "@/lib/ink/export";
 import { currentBlock } from "@/lib/ink/blocks";
 import { visibleInk } from "@/lib/ink/crossout";
 import { segmentLines } from "@/lib/ink/segment";
-import { INK_COLORS, TOOL_PRESETS } from "@/lib/ink/tools";
+import { INK_COLORS, TOOL_PRESETS, themedInk } from "@/lib/ink/tools";
+import { useTheme } from "@/lib/useTheme";
 import { unlockAudio } from "@/lib/voice";
 import { PAGE_H, type Box, type CheckRequest, type CheckResult, type CheckedLine, type LineBox, type Notebook, type Page, type PageBrain, type QuizQuestion, type ReadLine, type Stroke, type StruggleEvent, type TemplateId, type ToolState, type Verdict } from "@/lib/types";
 import { AIPanel } from "@/components/ai/AIPanel";
@@ -38,6 +39,14 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
   const [currentId, setCurrentId] = useState<string>("");
   const [missing, setMissing] = useState(false);
   const [tool, setTool] = useState<ToolState>({ tool: "pen", color: INK_COLORS[0], size: TOOL_PRESETS.pen.defaultSize, drawWithFinger: false, tutorMode: true });
+  // The pen color follows the theme: navy becomes white in dark mode (and blue becomes light blue …),
+  // so the default ink is always readable on the paper. Derived, not stored, so it flips in the same
+  // frame as the theme switch.
+  const theme = useTheme();
+  const toolState = useMemo<ToolState>(
+    () => (tool.tool === "highlighter" ? tool : { ...tool, color: themedInk(tool.color, theme) }),
+    [tool, theme],
+  );
   const [history, setHistory] = useState({ canUndo: false, canRedo: false });
   const [railOpen, setRailOpen] = useState(true);
   const [aiOpen, setAiOpen] = useState(false);
@@ -361,7 +370,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
     <main className="flex h-[100dvh] flex-col overflow-hidden bg-desk">
       <Toolbar
         title={notebook.title}
-        toolState={tool}
+        toolState={toolState}
         onToolState={(t) => {
           setTool(t);
           if (t.tutorMode && !tool.tutorMode) runCheck(true);
@@ -422,7 +431,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
             key={page.id}
             ref={canvasRef}
             page={page}
-            toolState={tool}
+            toolState={toolState}
             onChange={onChange}
             onHistoryChange={setHistory}
             onLassoSelect={async (box) => {
@@ -431,7 +440,7 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
               setAiOpen(true);
             }}
           >
-            {snippet && <rect x={snippet.box.x} y={snippet.box.y} width={snippet.box.w} height={snippet.box.h} rx={8} fill="rgba(36,86,201,.06)" stroke="#2456c9" strokeDasharray="8 6" strokeWidth={2} />}
+            {snippet && <rect x={snippet.box.x} y={snippet.box.y} width={snippet.box.w} height={snippet.box.h} rx={8} fill="rgba(36,86,201,.06)" stroke={theme === "dark" ? "#7aa5ff" : "#2456c9"} strokeDasharray="8 6" strokeWidth={2} />}
             {page.quiz?.length ? <QuizOverlay questions={page.quiz} grades={grades} /> : null}
             {tool.tutorMode && shown && (
               <TutorMarks

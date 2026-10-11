@@ -12,7 +12,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-4 sm:items-center" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-scrim p-4 sm:items-center" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <div role="dialog" aria-label={title} className="w-full max-w-md rounded-2xl bg-paper p-5 shadow-2xl animate-[sheet-in_.18s_ease-out]">
         <h2 className="mb-4 text-lg font-semibold">{title}</h2>
         {children}

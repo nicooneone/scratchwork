@@ -1,5 +1,6 @@
 // Owner: A. Renders a page region to a PNG for the AI to read.
-// Ink only (no template, no highlighter) on white, with precise erases applied, plus gray
+// Ink only (no template, no highlighter) on white, always in light-mode colors (white ink from dark
+// mode comes out navy), with precise erases applied, plus gray
 // "L1:", "L2:" … labels in a left margin so Gemini can say which line is which.
 import type { Box, LineBox, Stroke } from "../types";
 import { visibleInk } from "./crossout";
@@ -33,7 +34,7 @@ export async function renderToPng(
   //    Crossed-out writing (and the strike or scribble through it) is treated as deleted.
   for (const s of visibleInk(strokes).visible) {
     if (s.tool === "highlighter") continue;
-    drawStroke(ctx, s, { plainPencil: true });
+    drawStroke(ctx, s, { plainPencil: true, theme: "light" });
   }
 
   // 2. Line labels and a margin rule.

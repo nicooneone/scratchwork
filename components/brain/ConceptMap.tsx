@@ -70,15 +70,15 @@ export function ConceptMap({ pages, notebooks, onNavigate }: { pages: Page[]; no
 
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full rounded-xl bg-white ring-1 ring-rule">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full rounded-xl bg-surface ring-1 ring-rule">
         {links.map((l, i) => {
           const s = l.source as Node, t = l.target as Node;
           const hot = selected && (s.id === selected || t.id === selected);
-          return <line key={i} x1={s.x} y1={s.y} x2={t.x} y2={t.y} stroke={hot ? "var(--ink)" : "#c4cad6"} strokeWidth={Math.min(5, 0.8 + l.w)} />;
+          return <line key={i} x1={s.x} y1={s.y} x2={t.x} y2={t.y} stroke={hot ? "var(--ink)" : "var(--rule)"} strokeWidth={Math.min(5, 0.8 + l.w)} />;
         })}
         {nodes.map((n) => (
           <g key={n.id} onClick={() => setSelected(n.id === selected ? null : n.id)} style={{ cursor: "pointer" }}>
-            <circle cx={n.x} cy={n.y} r={n.r} fill={n.id === selected ? "var(--ink)" : "#e7ebf3"} stroke="var(--ink)" strokeWidth={1.2} />
+            <circle cx={n.x} cy={n.y} r={n.r} fill={n.id === selected ? "var(--ink)" : "var(--desk)"} stroke="var(--ink)" strokeWidth={1.2} />
             <text x={n.x} y={(n.y ?? 0) + n.r + 12} textAnchor="middle" fontSize={10.5} fill="var(--ink)">
               {n.id.replace(/-/g, " ")}
             </text>

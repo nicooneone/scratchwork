@@ -85,7 +85,7 @@ export function WhyGraph({ graph }: { graph: Graph }) {
   const zeroY = view.y0 < 0 && view.y1 > 0 ? sy(0) : null;
 
   return (
-    <div className="mt-3 rounded-xl bg-white p-2 ring-1 ring-rule">
+    <div className="mt-3 rounded-xl bg-surface p-2 ring-1 ring-rule">
       <div className="flex items-baseline justify-between px-1">
         <span className="font-hand text-xl font-bold leading-none">{title}</span>
         <span className="flex gap-2 text-[11px] text-ink-soft">
@@ -118,7 +118,7 @@ export function WhyGraph({ graph }: { graph: Graph }) {
           Number.isFinite(d.y) && inY(d.y) ? (
             <g key={`${i}-${d.ghost ? "g" : "d"}`} opacity={d.ghost ? 0.45 : 1}>
               <line x1={sx(d.x)} x2={sx(d.x)} y1={sy(d.y)} y2={H - PAD.b} stroke={COLOR[d.tone]} strokeDasharray="2 3" />
-              <circle cx={sx(d.x)} cy={sy(d.y)} r={d.ghost ? 5 : 6.5} fill={d.ghost ? "white" : COLOR[d.tone]} stroke={COLOR[d.tone]} strokeWidth="2" />
+              <circle cx={sx(d.x)} cy={sy(d.y)} r={d.ghost ? 5 : 6.5} fill={d.ghost ? "var(--surface)" : COLOR[d.tone]} stroke={COLOR[d.tone]} strokeWidth="2" />
               {d.ghost && morphs && t > 0.5 && (
                 <text x={clamp(sx(d.x), PAD.l + 28, W - PAD.r - 28)} y={Math.min(H - PAD.b - 6, sy(d.y) + 22)} fontSize="11" fontWeight="600" fill={COLOR[d.tone]} textAnchor="middle" className="font-sans" stroke="white" strokeWidth={3.5} paintOrder="stroke">
                   was {d.label}

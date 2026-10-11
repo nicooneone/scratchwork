@@ -44,7 +44,7 @@ export function QuizOverlay({ questions, grades }: { questions: QuizQuestion[]; 
                 {ln}
               </text>
             ))}
-            <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={10} fill="none" stroke="#c9d1df" strokeDasharray="8 8" strokeWidth={1.5} />
+            <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={10} fill="none" stroke="var(--rule)" strokeDasharray="8 8" strokeWidth={1.5} />
             {g === "correct" && <path d={`M ${b.x + b.w - 60} ${b.y + 36} l 14 16 l 28 -36`} fill="none" stroke="var(--ok)" strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" className="draw-in" style={{ ["--len" as string]: 90 }} />}
             {g === "error" && (
               <g className="draw-in" style={{ ["--len" as string]: 120 }}>

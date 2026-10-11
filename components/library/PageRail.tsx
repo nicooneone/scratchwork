@@ -62,7 +62,7 @@ export function PageRail({
                 className="flex flex-col items-center gap-1"
               >
                 <span
-                  className={`aspect-[1000/1414] w-full rounded-sm bg-white shadow-sm ${picker === "paper" && current?.template === t.id ? "outline-2 outline-ink" : "outline outline-rule"}`}
+                  className={`aspect-[1000/1414] w-full rounded-sm bg-paper shadow-sm ${picker === "paper" && current?.template === t.id ? "outline-2 outline-ink" : "outline outline-rule"}`}
                   style={{ ["--u" as string]: "0.07px", ...templateStyle(t.id) }}
                 />
                 <span className="text-[11px] text-ink-soft">{t.label}</span>

@@ -1,9 +1,11 @@
 "use client";
 // Owner: C. Notebook toolbar. Two rows so it fits an iPad in portrait:
-//   top:    back · title · undo/redo · draw-with-finger · Tutor mode · Check · AI
+//   top:    back · title · undo/redo · draw-with-finger · Tutor mode · Check · light/dark · AI
 //   bottom: tools · colors (+ custom) · size with live preview · favorites
 import { useRef, useState, type ReactNode } from "react";
-import { HIGHLIGHTER_COLORS, INK_COLORS, TOOL_PRESETS, isEraser } from "@/lib/ink/tools";
+import { HIGHLIGHTER_COLORS, TOOL_PRESETS, inkPalette, isEraser, themedInk } from "@/lib/ink/tools";
+import { useTheme } from "@/lib/useTheme";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { ToolKind, ToolState } from "@/lib/types";
 import { Icon } from "@/components/ui/icons";
 
@@ -41,6 +43,8 @@ export interface ToolbarProps {
 
 export function Toolbar(p: ToolbarProps) {
   const { toolState: ts, onToolState } = p;
+  const theme = useTheme();
+  const inkColors = inkPalette(theme);
   const lastByTool = useRef<Partial<Record<ToolKind, { color: string; size: number }>>>({});
   // The toolbar only renders after the notebook loads from IndexedDB, so this never runs on the server.
   const [favs, setFavs] = useState<Favorite[]>(() => {
@@ -63,14 +67,14 @@ export function Toolbar(p: ToolbarProps) {
     if (tool === ts.tool) return;
     lastByTool.current[ts.tool] = { color: ts.color, size: ts.size };
     const remembered = lastByTool.current[tool];
-    const defaultColor = tool === "highlighter" ? HIGHLIGHTER_COLORS[0] : INK_COLORS[0];
+    const defaultColor = tool === "highlighter" ? HIGHLIGHTER_COLORS[0] : inkColors[0];
     const color = remembered?.color ?? (tool === "highlighter" || ts.tool === "highlighter" || isEraser(ts.tool) || ts.tool === "lasso" ? defaultColor : ts.color);
     onToolState({ ...ts, tool, color, size: remembered?.size ?? TOOL_PRESETS[tool].defaultSize });
   };
 
   const eraserOn = isEraser(ts.tool);
   const preset = TOOL_PRESETS[ts.tool];
-  const colors = ts.tool === "highlighter" ? HIGHLIGHTER_COLORS : INK_COLORS;
+  const colors = ts.tool === "highlighter" ? HIGHLIGHTER_COLORS : inkColors;
   const showColor = !eraserOn && ts.tool !== "lasso";
   const showSize = ts.tool !== "lasso";
 
@@ -110,6 +114,7 @@ export function Toolbar(p: ToolbarProps) {
             {p.checking ? "Checking…" : "Check page"}
           </button>
         )}
+        <ThemeToggle />
         <TBtn label="Ask RedLine" active={p.aiOpen} onClick={p.onToggleAI}>
           <Icon.sparkle />
         </TBtn>
@@ -191,8 +196,8 @@ export function Toolbar(p: ToolbarProps) {
           {favs.map((f, i) => (
             <FavoriteChip
               key={`${f.tool}-${f.color}-${f.size}-${i}`}
-              fav={f}
-              active={f.tool === ts.tool && f.color === ts.color && f.size === ts.size}
+              fav={f.tool === "highlighter" ? f : { ...f, color: themedInk(f.color, theme) }}
+              active={f.tool === ts.tool && (f.tool === "highlighter" ? f.color : themedInk(f.color, theme)) === ts.color && f.size === ts.size}
               onApply={() => onToolState({ ...ts, tool: f.tool, color: f.color, size: f.size })}
               onRemove={() => saveFavs(favs.filter((_, j) => j !== i))}
             />

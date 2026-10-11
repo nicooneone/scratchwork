@@ -1,7 +1,7 @@
 // Owner: A. Draws strokes onto a 2D canvas context that is already scaled to page units.
 import { getStroke } from "perfect-freehand";
 import type { Stroke } from "../types";
-import { TOOL_PRESETS } from "./tools";
+import { TOOL_PRESETS, themedInk } from "./tools";
 
 /** perfect-freehand outline → SVG path data (quadratic curves through midpoints). */
 function outlineToPath(outline: number[][]): string {
@@ -73,15 +73,23 @@ export interface DrawOptions {
   plainPencil?: boolean;
   /** The stroke is still being drawn. */
   live?: boolean;
+  /** Which paper the ink is drawn for (adaptive ink colors). Defaults to the app's current theme. */
+  theme?: "light" | "dark";
+}
+
+/** The app's current theme, read from <html data-theme> (see lib/theme.ts). */
+export function currentInkTheme(): "light" | "dark" {
+  return typeof document !== "undefined" && document.documentElement.dataset.theme === "dark" ? "dark" : "light";
 }
 
 /** Draw one stroke. Highlighter strokes are drawn opaque: the highlighter layer itself is translucent. */
 export function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke, opts: DrawOptions = {}) {
   if (stroke.points.length === 0) return;
+  const color = stroke.tool === "highlighter" ? stroke.color : themedInk(stroke.color, opts.theme ?? currentInkTheme());
   ctx.save();
   switch (stroke.tool) {
     case "highlighter":
-      ctx.strokeStyle = stroke.color;
+      ctx.strokeStyle = color;
       ctx.lineWidth = stroke.size;
       ctx.lineCap = "butt";
       ctx.lineJoin = "round";
@@ -105,9 +113,9 @@ export function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke, opts: 
       if (!path) break;
       if (stroke.tool === "pencil" && !opts.plainPencil) {
         ctx.globalAlpha = 0.85;
-        ctx.fillStyle = pencilGrain(ctx, stroke.color);
+        ctx.fillStyle = pencilGrain(ctx, color);
       } else {
-        ctx.fillStyle = stroke.color;
+        ctx.fillStyle = color;
       }
       ctx.fill(path);
     }

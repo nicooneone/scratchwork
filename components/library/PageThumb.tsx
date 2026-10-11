@@ -2,6 +2,8 @@
 // Owner: C. Small live preview of a page: template background + ink on one canvas.
 import { memo, useEffect, useRef } from "react";
 import { drawStroke } from "@/lib/ink/render";
+import { highlighterOpacity } from "@/lib/ink/tools";
+import { useTheme } from "@/lib/useTheme";
 import { templateStyle } from "@/lib/ink/templates";
 import { PAGE_H, PAGE_W, type Page } from "@/lib/types";
 
@@ -10,6 +12,7 @@ const THUMB_W = 104;
 export const PageThumb = memo(
   function PageThumb({ page }: { page: Page }) {
     const ref = useRef<HTMLCanvasElement>(null);
+    const theme = useTheme(); // ink colors adapt to the paper, so redraw when it flips
 
     useEffect(() => {
       const c = ref.current;
@@ -24,13 +27,13 @@ export const PageThumb = memo(
         const k = (THUMB_W * dpr) / PAGE_W;
         ctx.setTransform(k, 0, 0, k, 0, 0);
         for (const s of page.strokes) {
-          ctx.globalAlpha = s.tool === "highlighter" ? 0.35 : 1;
-          drawStroke(ctx, s, { plainPencil: true });
+          ctx.globalAlpha = s.tool === "highlighter" ? highlighterOpacity(theme) : 1;
+          drawStroke(ctx, s, { plainPencil: true, theme });
         }
         ctx.globalAlpha = 1;
       }, 250);
       return () => clearTimeout(t);
-    }, [page.strokes]);
+    }, [page.strokes, theme]);
 
     useEffect(() => {
       const c = ref.current;

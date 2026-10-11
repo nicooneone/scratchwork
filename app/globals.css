@@ -10,9 +10,29 @@
   --pen: #c8322b;
   --ok: #2f7d4f;
   --template-line: #c9d6ea;
+  --surface: #ffffff; /* cards, inputs and chat bubbles that sit on the paper */
+  --scrim: rgba(29, 42, 68, 0.3);
+  --hl-opacity: 0.35; /* keep in sync with highlighterOpacity() in lib/ink/tools.ts */
+}
+
+/* Night notebook: ink-navy desk, a lifted navy page, warm white writing, a brighter red pen. */
+:root[data-theme="dark"] {
+  --paper: #172034;
+  --desk: #0e1420;
+  --ink: #ece8dc;
+  --ink-soft: #97a3ba;
+  --rule: #2a3550;
+  --pen: #ff6b5e;
+  --ok: #5fc98d;
+  --template-line: #2b3854;
+  --surface: #1e2840;
+  --scrim: rgba(3, 6, 12, 0.6);
+  --hl-opacity: 0.55;
 }
 
 @theme inline {
+  --color-surface: var(--surface);
+  --color-scrim: var(--scrim);
   --color-paper: var(--paper);
   --color-desk: var(--desk);
   --color-ink: var(--ink);
@@ -74,3 +94,37 @@ body {
 .scroll-y { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
+
+/* ---- Theme switch: ink spills out of the toggle (to dark) or draws back into it (to light). ----
+   The blot's shape is animated from components/ui/ThemeToggle.tsx; here we only turn off the
+   browser's default cross-fade and stack the right snapshot on top. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+html.ink-retract::view-transition-old(root) { z-index: 2; }
+html.ink-retract::view-transition-new(root) { z-index: 1; }
+
+/* Fallback for browsers without View Transitions: a quick cross-fade of the chrome. */
+html.theme-fade,
+html.theme-fade *,
+html.theme-fade *::before,
+html.theme-fade *::after {
+  transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease, fill 0.45s ease, stroke 0.45s ease !important;
+}
+
+/* Sun ↔ moon: a dark disc slides over the sun to cut the crescent while the rays pull in. */
+.theme-icon .rays { transform-origin: 12px 12px; transition: transform 0.5s cubic-bezier(.5, -0.4, .3, 1.4), opacity 0.3s ease; }
+.theme-icon .core { transform-origin: 12px 12px; transition: transform 0.5s cubic-bezier(.5, -0.4, .3, 1.4); }
+.theme-icon .bite { transition: transform 0.5s cubic-bezier(.5, -0.4, .3, 1.4); }
+.theme-icon .rays { transform: rotate(-30deg) scale(0.4); opacity: 0; }
+.theme-icon .core { transform: scale(1.35); }
+.theme-icon .bite { transform: translate(0, 0); }
+html:not([data-theme="dark"]) .theme-icon .rays { transform: none; opacity: 1; }
+html:not([data-theme="dark"]) .theme-icon .core { transform: none; }
+html:not([data-theme="dark"]) .theme-icon .bite { transform: translate(9px, -9px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-icon * { transition: none !important; }
+}

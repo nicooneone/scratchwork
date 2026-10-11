@@ -13,7 +13,7 @@ export function TutorMarks({ result, onOpen }: { result: CheckResult; onOpen(lin
         l === err ? null : l.verdict === "correct" ? (
           <Tick key={`t${l.index}-${l.box.y}`} x={l.box.x + l.box.w + 14} y={l.box.y + l.box.h / 2} />
         ) : l.verdict === "unclear" && l.readConfidence < 0.5 ? (
-          <text key={`q${l.index}`} x={l.box.x + l.box.w + 16} y={l.box.y + l.box.h / 2 + 10} fontSize={30} fill="#8b93a7" className="font-hand">
+          <text key={`q${l.index}`} x={l.box.x + l.box.w + 16} y={l.box.y + l.box.h / 2 + 10} fontSize={30} fill="var(--ink-soft)" className="font-hand">
             ?
           </text>
         ) : null,

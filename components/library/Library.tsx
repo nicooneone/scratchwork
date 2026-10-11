@@ -8,6 +8,7 @@ import { templateStyle } from "@/lib/ink/templates";
 import type { Notebook, TemplateId } from "@/lib/types";
 import { Icon } from "@/components/ui/icons";
 import { Sheet } from "@/components/ui/Sheet";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { COVERS } from "./covers";
 import { NotebookCover } from "./NotebookCover";
 
@@ -42,9 +43,12 @@ export default function Library() {
           </h1>
           <p className="mt-2 text-ink-soft">The notebook that checks your thinking, not just your answer.</p>
         </div>
-        <button onClick={() => setCreating(true)} className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-ink px-5 font-medium text-paper shadow-md active:scale-95">
-          <Icon.plus size={20} /> New notebook
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <ThemeToggle />
+          <button onClick={() => setCreating(true)} className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-ink px-5 font-medium text-paper shadow-md active:scale-95">
+            <Icon.plus size={20} /> New notebook
+          </button>
+        </div>
       </header>
 
       {notebooks === null ? null : notebooks.length === 0 ? (
@@ -108,7 +112,7 @@ function NewNotebookSheet({ open, onClose, onCreate }: { open: boolean; onClose(
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Calc 1"
-          className="h-12 rounded-lg border border-rule bg-white px-3 text-lg outline-none focus:border-ink"
+          className="h-12 rounded-lg border border-rule bg-surface px-3 text-lg outline-none focus:border-ink"
         />
         <fieldset>
           <legend className="mb-2 text-sm text-ink-soft">Cover</legend>
@@ -131,7 +135,7 @@ function NewNotebookSheet({ open, onClose, onCreate }: { open: boolean; onClose(
             {TEMPLATES.map((t) => (
               <button type="button" key={t.id} onClick={() => setTemplate(t.id)} className="flex flex-col items-center gap-1">
                 <span
-                  className={`aspect-[1000/1414] w-full rounded-sm bg-white shadow-sm ${template === t.id ? "outline-2 outline-ink" : "outline outline-rule"}`}
+                  className={`aspect-[1000/1414] w-full rounded-sm bg-paper shadow-sm ${template === t.id ? "outline-2 outline-ink" : "outline outline-rule"}`}
                   style={{ ["--u" as string]: "0.05px", ...templateStyle(t.id) }}
                 />
                 <span className="text-[11px] text-ink-soft">{t.label}</span>
@@ -167,7 +171,7 @@ function ActionsSheet({ notebook, onClose, onChanged }: { notebook: Notebook; on
           onClose();
         }}
       >
-        <input value={title} onChange={(e) => setTitle(e.target.value)} className="h-11 min-w-0 flex-1 rounded-lg border border-rule bg-white px-3 outline-none focus:border-ink" />
+        <input value={title} onChange={(e) => setTitle(e.target.value)} className="h-11 min-w-0 flex-1 rounded-lg border border-rule bg-surface px-3 outline-none focus:border-ink" />
         <button className="h-11 rounded-full bg-ink px-5 font-medium text-paper">Rename</button>
       </form>
       <button

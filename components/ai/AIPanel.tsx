@@ -153,7 +153,7 @@ function AskTab({
             <p className="mt-1 text-sm text-ink-soft">I&apos;ve read every notebook. Answers link to the page they came from.</p>
             <div className="mt-4 flex flex-col gap-2">
               {["What did I struggle with this week?", "Summarize my chain rule notes", "Where did I explain u-substitution?"].map((s) => (
-                <button key={s} onClick={() => send(s)} className="rounded-xl border border-rule bg-white px-3 py-2 text-left text-sm">
+                <button key={s} onClick={() => send(s)} className="rounded-xl border border-rule bg-surface px-3 py-2 text-left text-sm">
                   {s}
                 </button>
               ))}
@@ -162,7 +162,7 @@ function AskTab({
         )}
         {msgs.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-[15px] leading-relaxed ${m.role === "user" ? "rounded-br-sm bg-ink text-paper" : "rounded-bl-sm bg-white ring-1 ring-rule"}`}>
+            <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-[15px] leading-relaxed ${m.role === "user" ? "rounded-br-sm bg-ink text-paper" : "rounded-bl-sm bg-surface ring-1 ring-rule"}`}>
               <CitedText text={m.text} labelOf={labelOf} onNavigate={onNavigate} />
               {m.citations && m.citations.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -196,7 +196,7 @@ function AskTab({
         }}
         className="flex gap-2 border-t border-rule p-2 pb-[max(env(safe-area-inset-bottom),8px)]"
       >
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={snippet ? "What about this part?" : "Ask about your notes…"} className="h-11 min-w-0 flex-1 rounded-full border border-rule bg-white px-4 outline-none focus:border-ink" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={snippet ? "What about this part?" : "Ask about your notes…"} className="h-11 min-w-0 flex-1 rounded-full border border-rule bg-surface px-4 outline-none focus:border-ink" />
         <button aria-label="Send" disabled={!q.trim() || thinking} className="flex h-11 w-11 items-center justify-center rounded-full bg-ink text-paper disabled:opacity-40">
           <Icon.send size={18} />
         </button>
@@ -263,7 +263,7 @@ function QuizTab({ struggles, ensureIndexed, busy, mock, onMakeQuizPage }: AIPan
         <>
           <ol className="mt-4 space-y-2">
             {qs.map((q, i) => (
-              <li key={q.id} className="rounded-xl bg-white p-3 ring-1 ring-rule">
+              <li key={q.id} className="rounded-xl bg-surface p-3 ring-1 ring-rule">
                 <div className="text-[15px]">
                   <span className="font-semibold">{i + 1}.</span> {q.prompt}
                 </div>
