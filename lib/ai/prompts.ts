@@ -114,6 +114,7 @@ You get their page transcripts (<page id="...">) and their mastery per topic (pK
 
 Follow the QUIZ SETTINGS in the request exactly: the number of questions, difficulty, focus, topics and question styles.
 - Each must be solvable by hand on paper, in the same notation as their notes.
+- "prompt" is shown to the student with real math typesetting: write EVERY piece of math in LaTeX between $ signs, e.g. "Evaluate $\\int 6x(x^2+1)^2\\,dx$", "Solve $2(x-5)+3=x+4$", "Find $\\frac{d}{dx}\\left(x^2\\sin x\\right)$", "Simplify $\\frac{x^2-9}{x-3}$", "Evaluate $\\int_0^1 x^2\\,dx$". Never write math as words or ASCII ("integral of", "int", "x^2", "sqrt(x)", "d/dx") outside $...$.
 - "answer" is the final answer in plain ASCII math a parser understands (x = 11, (x^2 + 1)^3, 2*x*sin(x) + x^2*cos(x), 7). No "+ C" on integrals.
 - "answerKind": "equation" if the answer is like x = 11, "number" if it is a single number, otherwise "expression".
 - "topic": the kebab-case topic it practices.
@@ -122,7 +123,7 @@ Follow the QUIZ SETTINGS in the request exactly: the number of questions, diffic
 - "integrand": for integral questions, the integrand in ASCII (e.g. 2*x*exp(x^2)). Otherwise omit.
 - "difficulty": "warm-up", "standard", "challenge" or "exam", matching how hard the question really is.
 - "style": "solve", "simplify", "derivative", "integral" or "word" (a short real-world word problem).
-- "hint": one short sentence that nudges toward the first step. It must NOT contain the answer or any intermediate result.
+- "hint": one short sentence that nudges toward the first step, math in $...$ LaTeX like the prompt. It must NOT contain the answer or any intermediate result.
 Work each answer out carefully step by step before writing it: a wrong answer key is the worst possible mistake.`;
 
 export const QUIZ_SCHEMA = {

@@ -2,6 +2,8 @@
 // Owner: C. Quiz pages: questions typed at the top of each answer area, answered by hand.
 // Live Check grades the last line written inside each answer box (lib/math/quiz.ts).
 import { checkQuizAnswer } from "@/lib/math/quiz";
+import { answerTex } from "@/lib/math/tex";
+import { MathTex, MathText } from "@/components/math/MathText";
 import type { CheckedLine, QuizQuestion, Verdict } from "@/lib/types";
 
 const TOP = 110, LEFT = 70, WIDTH = 860, BLOCK = 245, PROMPT_H = 64;
@@ -33,16 +35,14 @@ export function QuizOverlay({
   questions,
   grades,
   title = "Quiz · from your notes",
-  firstNumber = 1,
   hintsAllowed = false,
   shownHints = [],
-  revealed = false,
   onToggleHint,
 }: {
   questions: QuizQuestion[];
   grades: Record<string, Verdict>;
   title?: string;
-  firstNumber?: number;
+  firstNumber?: number; // numbering and revealed answers are drawn by QuizMathLayer
   hintsAllowed?: boolean;
   shownHints?: string[];
   revealed?: boolean;
@@ -53,19 +53,14 @@ export function QuizOverlay({
       <text x={LEFT} y={72} fontSize={34} className="font-hand" fontWeight={700} fill="var(--ink)">
         {title}
       </text>
-      {questions.map((q, i) => {
+      {questions.map((q) => {
         const b = q.answerBox;
         if (!b) return null;
-        const lines = wrap(`${firstNumber + i}. ${q.prompt ?? ""}`, 62);
         const hintOpen = shownHints.includes(q.id);
         const g = grades[q.id];
         return (
           <g key={q.id}>
-            {lines.map((ln, j) => (
-              <text key={j} x={LEFT} y={b.y - PROMPT_H + 30 + j * 28} fontSize={23} fill="var(--ink)" className="font-sans">
-                {ln}
-              </text>
-            ))}
+            {/* question text, hint and answer are typeset in QuizMathLayer (HTML over the page) */}
             <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={10} fill="none" stroke="var(--rule)" strokeDasharray="8 8" strokeWidth={1.5} />
             {g === "correct" && <path d={`M ${b.x + b.w - 60} ${b.y + 36} l 14 16 l 28 -36`} fill="none" stroke="var(--ok)" strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" className="draw-in" style={{ ["--len" as string]: 90 }} />}
             {hintsAllowed && q.hint && (
@@ -83,17 +78,6 @@ export function QuizOverlay({
                 </text>
               </g>
             )}
-            {hintOpen && q.hint && (
-              <text x={b.x + 16} y={b.y + 30} fontSize={26} fill="var(--ink-soft)" className="font-hand">
-                {wrap(q.hint, 64)[0]}
-                {wrap(q.hint, 64)[1] ? <tspan x={b.x + 16} dy={28}>{wrap(q.hint, 64)[1]}</tspan> : null}
-              </text>
-            )}
-            {revealed && (
-              <text x={b.x + b.w - 16} y={b.y + b.h - 14} fontSize={24} textAnchor="end" fill="var(--ok)" className="font-sans" fontWeight={600}>
-                Answer: {(q.answer ?? "").length > 40 ? q.answer.slice(0, 40) + "…" : q.answer}
-              </text>
-            )}
             {g === "error" && (
               <g className="draw-in" style={{ ["--len" as string]: 120 }}>
                 <path d={`M ${b.x + b.w - 62} ${b.y + 18} l 36 36 M ${b.x + b.w - 26} ${b.y + 18} l -36 36`} fill="none" stroke="var(--mark)" strokeWidth={6} strokeLinecap="round" />
@@ -106,15 +90,55 @@ export function QuizOverlay({
   );
 }
 
-function wrap(s: string, max: number): string[] {
-  const out: string[] = [];
-  let cur = "";
-  for (const w of s.split(/\s+/)) {
-    if ((cur + " " + w).trim().length > max && cur) {
-      out.push(cur);
-      cur = w;
-    } else cur = (cur + " " + w).trim();
-  }
-  if (cur) out.push(cur);
-  return out.slice(0, 2);
+// Page units -> CSS inside PageCanvas's htmlOverlay (container = page width; 1 unit = 0.1cqw).
+const px = (u: number) => `${u * 0.1}cqw`;
+const pctX = (u: number) => `${(u / 1000) * 100}%`;
+const pctY = (u: number) => `${(u / 1414) * 100}%`;
+
+/** Question text, hints and revealed answers with real math notation (KaTeX), positioned over the quiz page. */
+export function QuizMathLayer({
+  questions,
+  firstNumber = 1,
+  hintsAllowed = false,
+  shownHints = [],
+  revealed = false,
+}: {
+  questions: QuizQuestion[];
+  firstNumber?: number;
+  hintsAllowed?: boolean;
+  shownHints?: string[];
+  revealed?: boolean;
+}) {
+  return (
+    <div className="quiz-math text-ink">
+      {questions.map((q, i) => {
+        const b = q.answerBox;
+        if (!b) return null;
+        const chip = hintsAllowed && !!q.hint;
+        return (
+          <div key={q.id}>
+            <div
+              className="absolute font-sans"
+              style={{ left: pctX(LEFT), top: pctY(b.y - PROMPT_H + 4), width: pctX(b.w - (chip ? 132 : 0)), fontSize: px(23), lineHeight: 1.3 }}
+            >
+              <span className="font-semibold">{firstNumber + i}.</span> <MathText text={q.prompt ?? ""} />
+            </div>
+            {chip && shownHints.includes(q.id) && (
+              <div className="absolute font-hand text-ink-soft" style={{ left: pctX(b.x + 16), top: pctY(b.y + 6), width: pctX(b.w - 32), fontSize: px(26), lineHeight: 1.25 }}>
+                <MathText text={q.hint!} />
+              </div>
+            )}
+            {revealed && q.answer && (
+              <div
+                className="absolute text-right font-sans font-semibold text-ok"
+                style={{ left: pctX(b.x), top: pctY(b.y + b.h - 46), width: pctX(b.w - 16), fontSize: px(24) }}
+              >
+                Answer: <MathTex tex={answerTex(q.answer)} />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }

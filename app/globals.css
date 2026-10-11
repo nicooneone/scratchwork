@@ -139,3 +139,7 @@ html:not([data-theme="dark"]) .theme-icon .bite { transform: translate(9px, -9px
 @media (prefers-reduced-motion: reduce) {
   .theme-icon * { transition: none !important; }
 }
+
+/* Typeset math (KaTeX) in quiz questions: a touch larger than the text around it, same ink color. */
+.math-text .katex { font-size: 1.08em; color: inherit; }
+.math-text .katex-display { margin: 0.2em 0; }

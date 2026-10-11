@@ -10,6 +10,7 @@ import type { AskRequest, AskResponse, Box, Notebook, Page, QuizQuestion, QuizSe
 import { ConceptMap } from "@/components/brain/ConceptMap";
 import { Icon } from "@/components/ui/icons";
 import { Squiggle } from "@/components/ui/Squiggle";
+import { MathText } from "@/components/math/MathText";
 import { indexStalePages, loadAllPages, pageLabel, toContexts } from "./indexing";
 import { COUNTS, DEFAULT_SETTINGS, DIFFICULTIES, PER_PAGE, PRESETS, STYLES, TIMERS, generateQuiz, knownTopics, loadSettings, saveSettings } from "./quizApi";
 
@@ -415,7 +416,7 @@ function QuizTab({ all, struggles, mock, onMakeQuizPage }: AIPanelProps & { all:
               <li key={q.id} className="rounded-xl bg-surface p-3 ring-1 ring-rule">
                 <div className="flex items-start gap-2">
                   <div className="flex-1 text-[15px]">
-                    <span className="font-semibold">{i + 1}.</span> {replacing === q.id ? <span className="text-ink-soft">Finding another…</span> : q.prompt}
+                    <span className="font-semibold">{i + 1}.</span> {replacing === q.id ? <span className="text-ink-soft">Finding another…</span> : <MathText text={q.prompt} />}
                   </div>
                   <button aria-label="Replace this question" title="Replace" disabled={!!replacing} onClick={() => replace(q)} className="h-8 w-8 shrink-0 rounded-full text-ink-soft hover:bg-desk disabled:opacity-40">
                     ↻

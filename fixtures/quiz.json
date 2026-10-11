@@ -1,7 +1,57 @@
 [
-  { "id": "q1", "prompt": "Solve 2(x - 5) + 3 = x + 4", "topic": "distributing", "answer": "x = 11", "answerKind": "equation", "sourcePageIds": ["fixture-page"] },
-  { "id": "q2", "prompt": "Find the integral of 6x(x^2 + 1)^2 dx", "topic": "u-substitution", "answer": "(x^2 + 1)^3", "answerKind": "expression", "sourcePageIds": ["fixture-page"] },
-  { "id": "q3", "prompt": "Solve -3(2x + 1) = 9", "topic": "distributing", "answer": "x = -2", "answerKind": "equation", "sourcePageIds": ["fixture-page"] },
-  { "id": "q4", "prompt": "Differentiate x^2 * sin(x)", "topic": "product-rule", "answer": "2*x*sin(x) + x^2*cos(x)", "answerKind": "expression", "sourcePageIds": ["fixture-page"] },
-  { "id": "q5", "prompt": "Solve 5x - 2 = 3x + 8", "topic": "linear-equations", "answer": "x = 5", "answerKind": "equation", "sourcePageIds": ["fixture-page"] }
+  {
+    "id": "q1",
+    "prompt": "Solve $2(x-5)+3=x+4$",
+    "topic": "distributing",
+    "answer": "x = 11",
+    "answerKind": "equation",
+    "sourcePageIds": [
+      "fixture-page"
+    ],
+    "hint": "Distribute the $2$ first, then collect the $x$ terms."
+  },
+  {
+    "id": "q2",
+    "prompt": "Evaluate $\\int 6x(x^2+1)^2\\,dx$",
+    "topic": "u-substitution",
+    "answer": "(x^2 + 1)^3",
+    "answerKind": "expression",
+    "sourcePageIds": [
+      "fixture-page"
+    ],
+    "hint": "Try the substitution $u = x^2+1$."
+  },
+  {
+    "id": "q3",
+    "prompt": "Solve $-3(2x+1)=9$",
+    "topic": "distributing",
+    "answer": "x = -2",
+    "answerKind": "equation",
+    "sourcePageIds": [
+      "fixture-page"
+    ],
+    "hint": "Divide both sides by $-3$ before anything else."
+  },
+  {
+    "id": "q4",
+    "prompt": "Find $\\frac{d}{dx}\\left(x^2\\sin x\\right)$",
+    "topic": "product-rule",
+    "answer": "2*x*sin(x) + x^2*cos(x)",
+    "answerKind": "expression",
+    "sourcePageIds": [
+      "fixture-page"
+    ],
+    "hint": "This is a product of two functions: use the product rule."
+  },
+  {
+    "id": "q5",
+    "prompt": "Solve $5x-2=3x+8$",
+    "topic": "linear-equations",
+    "answer": "x = 5",
+    "answerKind": "equation",
+    "sourcePageIds": [
+      "fixture-page"
+    ],
+    "hint": "Move every $x$ term to one side."
+  }
 ]

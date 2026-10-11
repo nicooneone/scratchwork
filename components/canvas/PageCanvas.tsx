@@ -33,6 +33,9 @@ export interface PageCanvasProps {
   onHistoryChange?(state: { canUndo: boolean; canRedo: boolean }): void;
   /** SVG overlay content drawn in page units (viewBox 0 0 1000 1414). Give tappable elements `data-ui`. */
   children?: ReactNode;
+  /** Appended: HTML drawn over the page, scaled with it (pan/zoom). Lay out in % of the page, and size text in
+   *  cqw: 1 page unit = 0.1cqw. Not interactive (pointer-events: none). Used for typeset math on quiz pages. */
+  htmlOverlay?: ReactNode;
   ref?: Ref<PageCanvasHandle>;
 }
 
@@ -60,6 +63,7 @@ export default function PageCanvas({
   onLassoSelect,
   onHistoryChange,
   children,
+  htmlOverlay,
   ref,
 }: PageCanvasProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -558,6 +562,11 @@ export default function PageCanvas({
         <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${PAGE_W} ${PAGE_H}`}>
           {children}
         </svg>
+        {htmlOverlay && (
+          <div className="pointer-events-none absolute inset-0" style={{ containerType: "inline-size" }}>
+            {htmlOverlay}
+          </div>
+        )}
       </div>
     </div>
   );

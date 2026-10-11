@@ -19,7 +19,7 @@ import { PAGE_H, type Box, type CheckRequest, type CheckResult, type CheckedLine
 import { AIPanel } from "@/components/ai/AIPanel";
 import { useBackgroundIndex } from "@/components/ai/useBackgroundIndex";
 import { HintCard } from "@/components/ai/HintCard";
-import { QuizOverlay, gradeQuiz, layoutQuiz } from "@/components/ai/QuizOverlay";
+import { QuizMathLayer, QuizOverlay, gradeQuiz, layoutQuiz } from "@/components/ai/QuizOverlay";
 import { QuizBar } from "@/components/ai/QuizBar";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Tour } from "@/components/tour/Tour";
@@ -498,6 +498,19 @@ export default function NotebookView({ id, initialPageId, mock }: { id: string; 
             toolState={toolState}
             onChange={onChange}
             onHistoryChange={setHistory}
+            htmlOverlay={
+              page.quiz?.length ? (
+                <ErrorBoundary label="Quiz" fallback={null}>
+                  <QuizMathLayer
+                    questions={page.quiz}
+                    firstNumber={page.quizMeta ? (page.quizMeta.part - 1) * PER_PAGE + 1 : 1}
+                    hintsAllowed={page.quizMeta?.hints ?? false}
+                    shownHints={shownHints}
+                    revealed={page.quizMeta?.revealed ?? false}
+                  />
+                </ErrorBoundary>
+              ) : undefined
+            }
             onLassoSelect={async (box) => {
               const png = await renderToPng(page.strokes, box);
               setSnippet({ png, box });
