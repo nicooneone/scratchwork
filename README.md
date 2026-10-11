@@ -4,7 +4,7 @@
 
 Write math with an Apple Pencil like you would in any notes app. Pause, and RedLine reads your handwriting, proves every step with a math engine, and draws a red line under the first step that goes wrong. Tap "Look here" for a Socratic hint that points you at the mistake without giving away the fix.
 
-**Try it:** [scratchwork-psi.vercel.app](https://scratchwork-psi.vercel.app) (best on an iPad with Apple Pencil: Safari, Share, Add to Home Screen; on a computer, turn on "Draw with finger" in the ⋯ menu to draw with the mouse).
+**Try it:** [scratchwork-psi.vercel.app](https://scratchwork-psi.vercel.app) (best on an iPad with Apple Pencil: Safari, Share, Add to Home Screen; on a computer the mouse draws).
 
 ## What it does
 
