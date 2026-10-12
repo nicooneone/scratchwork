@@ -72,4 +72,5 @@ Next.js 16 · React 19 · TypeScript · Tailwind CSS v4 · perfect-freehand · D
 
 ## Team
 
-Nico, Daniel and Dustyn, at HackRU Fall 2026. AI-assisted coding tools were used during the hackathon.
+Nico, Daniel and Dustyn, at HackRU Fall 2026.
+
